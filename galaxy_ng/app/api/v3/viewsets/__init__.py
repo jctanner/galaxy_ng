@@ -15,6 +15,10 @@ from .namespace import (
     NamespaceViewSet,
 )
 
+from .role import (
+    NGRoleViewSet
+)
+
 from .task import (
     TaskViewSet,
 )
@@ -36,4 +40,5 @@ __all__ = (
     'UnpaginatedCollectionViewSet',
     'UnpaginatedCollectionVersionViewSet',
     'RepoMetadataViewSet',
+    'RoleViewSet'
 )

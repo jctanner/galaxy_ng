@@ -15,6 +15,10 @@ from .group import (
     GroupSummarySerializer,
 )
 
+from .role import (
+    NGRoleSerializer
+)
+
 from .task import (
     TaskSerializer,
     TaskSummarySerializer,
@@ -28,6 +32,7 @@ __all__ = (
     'GroupSummarySerializer',
     'NamespaceSerializer',
     'NamespaceSummarySerializer',
+    'RoleSerializer',
     'TaskSerializer',
     'TaskSummarySerializer',
     'UnpaginatedCollectionVersionSerializer',

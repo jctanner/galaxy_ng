@@ -86,6 +86,11 @@ urlpatterns = [
         viewsets.CollectionVersionMoveViewSet.as_view({"post": "move_content"}),
         name="collection-version-move",
     ),
+    path(
+        "roles/",
+        viewsets.NGRoleViewSet.as_view({"get": "list", 'put': 'update'}),
+        name="roles-list",
+    ),
     path("tasks/", viewsets.TaskViewSet.as_view({"get": "list"}), name="tasks-list"),
     path("tasks/<str:pk>/", viewsets.TaskViewSet.as_view({"get": "retrieve"}), name="tasks-detail"),
     path("excludes/", views.ExcludesView.as_view(), name="excludes-file"),
