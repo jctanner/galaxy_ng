@@ -121,6 +121,10 @@ docker/load_test_data:  ## Load data for use on integration tests
 	#./compose run --rm api manage shell < dev/ephemeral/create_objects.py
 	$(call exec_or_run, api, bash, -c "django-admin shell < app/dev/ephemeral/create_objects.py")
 
+.PHONY: docker/load_community_data
+docker/load_community_data:  ## Load data for use with community stack
+	$(call exec_or_run, api, bash, -c "django-admin shell < app/dev/community/create_distro_repo.py")
+
 .PHONY: docker/makemigrations
 docker/makemigrations:   ## Run django migrations
 	$(call exec_or_run, api, $(DJ_MANAGER), makemigrations)

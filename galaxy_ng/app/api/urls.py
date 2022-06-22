@@ -9,6 +9,10 @@ DEFAULT_DISTRIBUTION_BASE_PATH = settings.GALAXY_API_DEFAULT_DISTRIBUTION_BASE_P
 
 app_name = "api"
 
+v1_urlpatterns = [
+    path("roles", views.v1RolesApiRedirectView.as_view()),
+    path("roles/", views.v1RolesApiRedirectView.as_view())
+]
 
 v3_urlpatterns = [
     path("", include(v3_urls.auth_urls)),
@@ -59,6 +63,7 @@ v3_combined = [
 
 urlpatterns = [
     path("_ui/", include((ui_urls, app_name), namespace="ui")),
+    path("v1/", include((v1_urlpatterns, app_name), namespace="v1")),
 
     path("", include((v3_combined, app_name), namespace='v3')),
 
