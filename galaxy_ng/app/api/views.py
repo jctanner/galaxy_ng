@@ -109,6 +109,46 @@ class LegacyRolesApiRedirectView(api_base.APIView):
         return HttpResponseRedirect(url, status=307)
 
 
+class LegacyRoleVersionsApiRedirectView(api_base.APIView):
+    permission_classes = [AllowAny]
+
+    """Redirect requests to /api/v1/roles/{pk}/versions to /api/pulp_ansible/galaxy/legacy/api/v1/roles/{pk}/versions
+    """
+
+    def get(self, request, *args, **kwargs):
+
+        print(f'ARGS: {args}')
+        print(f'KWARGS: {kwargs}')
+        print(f'request: {dir(request)}')
+        print(f'request.query_params: {request.query_params}')
+
+        '''
+        rargs = args[:]
+        rkwargs = copy.deepcopy(kwargs)
+        rkwargs['status'] = 307
+        return HttpResponseRedirect('/pulp_ansible/galaxy/legacy/api/v1/roles/', *rargs, **rkwargs)
+        '''
+
+        #url = reverse(RoleList.as_view(), kwargs=kwargs)
+        #url = reverse('RoleList', kwargs=kwargs)
+        #url = reverse('pulp_ansible.app.galaxy.views.RoleList', kwargs=kwargs)
+
+        pk = kwargs.get('pk')
+        url = f'/pulp_ansible/galaxy/legacy/api/v1/roles/{pk}/versions/'
+        if request.query_params:
+            kwarg_items = []
+            for k, v in request.query_params.items():
+                kwarg_items.append(f'{k}={v}')
+            url += '?' + '&'.join(kwarg_items)
+
+        #url = '/pulp_ansible/galaxy/legacy/api/v1/roles/'
+        #url = reverse(url, kwargs=request.query_params)
+
+        print(f'REDIRECT URL: {url}')
+
+        return HttpResponseRedirect(url, status=307)
+
+
 class LegacyImportsApiRedirectView(api_base.APIView):
     permission_classes = [AllowAny]
 

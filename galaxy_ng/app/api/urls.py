@@ -14,6 +14,16 @@ app_name = "api"
 v1_urlpatterns = [
     path("roles", views.LegacyRolesApiRedirectView.as_view()),
     path("roles/", views.LegacyRolesApiRedirectView.as_view()),
+    path(
+        "roles/<str:pk>/versions",
+        views.LegacyRoleVersionsApiRedirectView.as_view(),
+        name="role_versions"
+    ),
+    #path(
+    #    "roles/<str:pk>/versions/",
+    #    views.LegacyRolesApiRedirectView.as_view({'get': 'get_versions'}),
+    #    name="role_versions_slash"
+    #),
 
     # The galaxy cli will not follow -any- 3XX redirects for POST...
     #   https://github.com/ansible/ansible/blob/devel/lib/ansible/galaxy/api.py#L380-L381
