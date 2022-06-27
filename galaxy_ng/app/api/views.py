@@ -1,3 +1,4 @@
+import copy
 import os
 
 import galaxy_importer
@@ -13,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.reverse import reverse
 
 from galaxy_ng.app.api import base as api_base
+from pulp_ansible.app.galaxy.views import RoleList
 
 
 # define the version matrix at the module level to avoid the redefinition on every API call.
@@ -68,11 +70,53 @@ class ApiRedirectView(api_base.APIView):
         return HttpResponseRedirect(reverse(reverse_url_name,
                                             kwargs=reverse_kwargs), status=307)
 
-class v1RolesApiRedirectView(api_base.APIView):
+class LegacyRolesApiRedirectView(api_base.APIView):
     permission_classes = [AllowAny]
 
     """Redirect requests to /api/v1/roles to /api/pulp_ansible/galaxy/legacy/api/v1/roles
     """
 
     def get(self, request, *args, **kwargs):
-        return HttpResponseRedirect('/pulp_ansible/galaxy/legacy/api/v1/roles/')
+
+        print(f'ARGS: {args}')
+        print(f'KWARGS: {kwargs}')
+        print(f'request: {dir(request)}')
+        print(f'request.query_params: {request.query_params}')
+
+        '''
+        rargs = args[:]
+        rkwargs = copy.deepcopy(kwargs)
+        rkwargs['status'] = 307
+        return HttpResponseRedirect('/pulp_ansible/galaxy/legacy/api/v1/roles/', *rargs, **rkwargs)
+        '''
+
+        #url = reverse(RoleList.as_view(), kwargs=kwargs)
+        #url = reverse('RoleList', kwargs=kwargs)
+        #url = reverse('pulp_ansible.app.galaxy.views.RoleList', kwargs=kwargs)
+
+        url = '/pulp_ansible/galaxy/legacy/api/v1/roles/'
+        if request.query_params:
+            kwarg_items = []
+            for k, v in request.query_params.items():
+                kwarg_items.append(f'{k}={v}')
+            url += '?' + '&'.join(kwarg_items)
+
+        #url = '/pulp_ansible/galaxy/legacy/api/v1/roles/'
+        #url = reverse(url, kwargs=request.query_params)
+
+        print(f'REDIRECT URL: {url}')
+
+        return HttpResponseRedirect(url, status=307)
+
+
+class LegacyImportsApiRedirectView(api_base.APIView):
+    permission_classes = [AllowAny]
+
+    """Redirect requests to /api/v1/imports to /api/pulp_ansible/galaxy/legacy/api/v1/roles
+    """
+
+    def get(self, request, *args, **kwargs):
+        return HttpResponseRedirect('/pulp_ansible/galaxy/legacy/api/v1/imports/', status=307)
+
+    def post(self, request, *args, **kwargs):
+        return HttpResponseRedirect('/pulp_ansible/galaxy/legacy/api/v1/imports/', status=307)

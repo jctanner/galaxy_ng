@@ -5,13 +5,24 @@ from . import views
 from .ui import urls as ui_urls
 from .v3 import urls as v3_urls
 
+from pulp_ansible.app.galaxy.v1.views import LegacyImportView
+
 DEFAULT_DISTRIBUTION_BASE_PATH = settings.GALAXY_API_DEFAULT_DISTRIBUTION_BASE_PATH.strip('/')
 
 app_name = "api"
 
 v1_urlpatterns = [
-    path("roles", views.v1RolesApiRedirectView.as_view()),
-    path("roles/", views.v1RolesApiRedirectView.as_view())
+    path("roles", views.LegacyRolesApiRedirectView.as_view()),
+    path("roles/", views.LegacyRolesApiRedirectView.as_view()),
+
+    # The galaxy cli will not follow -any- 3XX redirects for POST...
+    #   https://github.com/ansible/ansible/blob/devel/lib/ansible/galaxy/api.py#L380-L381
+    #   https://github.com/ansible/ansible/blob/devel/lib/ansible/module_utils/urls.py#L836-L838
+    # path("imports", views.LegacyImportsApiRedirectView.as_view()),
+    # path("imports/", views.LegacyImportsApiRedirectView.as_view()),
+
+    path("imports", LegacyImportView.as_view({'get': 'get', 'post': 'post'})),
+    path("imports/", LegacyImportView.as_view({'get': 'get', 'post': 'post'}))
 ]
 
 v3_urlpatterns = [
