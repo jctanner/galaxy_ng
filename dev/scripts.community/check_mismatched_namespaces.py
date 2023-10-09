@@ -35,7 +35,8 @@ def do_check():
             continue
 
         if role.full_metadata.get('github_user') != expected_github_user:
-            print(f'FIX - ({len(rows)} | {idr}) set {role} github_user={expected_github_user}')
+            current_github_user = role.full_metadata.get('github_user')
+            print(f'FIX - ({len(rows)} | {idr}) set {role} github_user from {current_github_user} to {expected_github_user}')
             if not checkmode:
                 role.full_metadata['github_user'] = expected_github_user
                 role.save()
