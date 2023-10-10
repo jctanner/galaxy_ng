@@ -19,27 +19,26 @@ def do_check():
         raw = gz_file.read()
     rows = json.loads(raw)
 
+    current_data = LegacyRole.objects.values_list('id', 'full_metadata__upstream_id', 'full_metadata__github_user')
+    rmap = dict((x[1], {'id': x[0], 'upstream_id': x[1], 'github_user': x[2]}) for x in current_data)
+
     for idr,row in enumerate(rows):
 
-        '''
-        print('-' * 100)
-        print(f'{len(rows)} | {idr}')
-        pprint(row)
-        '''
-
+        upstream_id = int(row['role_id'])
         expected_github_user = row['provider_namespace__name']
-
-        # can we find it by the upstream ID? ...
-        role = LegacyRole.objects.filter(full_metadata__upstream_id=int(row['role_id'])).first()
-        if not role:
+        cdata = rmap.get(upstream_id)
+        if not cdata:
             continue
 
-        if role.full_metadata.get('github_user') != expected_github_user:
-            current_github_user = role.full_metadata.get('github_user')
-            print(f'FIX - ({len(rows)} | {idr}) set {role} github_user from {current_github_user} to {expected_github_user}')
-            if not checkmode:
-                role.full_metadata['github_user'] = expected_github_user
-                role.save()
+        if cdata['github_user'] == expected_github_user:
+            continue
+
+        role = LegacyRole.objects.get(id=cdata['id'])
+        current_github_user = role.full_metadata.get('github_user')
+        print(f'FIX - ({len(rows)} | {idr}) set {role} github_user from {current_github_user} to {expected_github_user}')
+        if not checkmode:
+            role.full_metadata['github_user'] = expected_github_user
+            role.save()
 
 
 do_check()
