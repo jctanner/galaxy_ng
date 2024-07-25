@@ -55,6 +55,7 @@ def post(settings: Dynaconf) -> Dict[str, Any]:
     data.update(configure_api_base_path(settings))
     data.update(configure_legacy_roles(settings))
     data.update(configure_dab_required_settings(settings))
+    data.update(configure_dab_rbac_settings(settings))
 
     # This should go last, and it needs to receive the data from the previous configuration
     # functions because this function configures the rest framework auth classes based off
@@ -737,4 +738,18 @@ def configure_dab_required_settings(settings: Dynaconf) -> Dict[str, Any]:
     for key in dir(dynamic_settings):
         if key.isupper() and settings.get(key, notset) is notset:
             data[key] = getattr(dynamic_settings, key)
+    return data
+
+
+def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
+    data = {}
+    if not hasattr(settings, 'ANSIBLE_BASE_MANAGED_ROLE_REGISTRY'):
+        data['ANSIBLE_BASE_MANAGED_ROLE_REGISTRY'] = {}
+    if not hasattr(settings, 'ANSIBLE_BASE_ALLOW_SINGLETON_ROLES_API'):
+        data['ANSIBLE_BASE_ALLOW_SINGLETON_ROLES_API'] = True
+    if not hasattr(settings, 'ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES'):
+        data['ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES'] = False
+    if not hasattr(settings, 'ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES'):
+        data['ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES'] = False
+    data["INSTALLED_APPS"] = settings.INSTALLED_APPS[:] + ["ansible_base.rbac"]
     return data
