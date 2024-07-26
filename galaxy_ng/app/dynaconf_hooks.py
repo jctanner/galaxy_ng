@@ -745,8 +745,7 @@ def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
     data = {}
 
     RBAC_DEFAULTS = [
-        #('ANSIBLE_BASE_TEAM_MODEL', 'galaxy.Team'),
-        #('ANSIBLE_BASE_TEAM_MODEL', 'galaxy_ng.Team'),
+        # ('ANSIBLE_BASE_TEAM_MODEL', 'galaxy.Team'),
         ('ANSIBLE_BASE_ROLE_CREATOR_NAME', '{obj._meta.model_name} Creator Role'),
         ('ANSIBLE_BASE_DELETE_REQUIRE_CHANGE', False),
         ('ANSIBLE_BASE_ALLOW_TEAM_PARENTS', False),
@@ -760,8 +759,8 @@ def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
     ]
 
     for key, value in RBAC_DEFAULTS:
-        # if settings.get(key, None) is None:
-        if not hasattr(settings, key):
+        empty = object()
+        if settings.get(key, empty) is empty:
             data[key] = value
 
     data["INSTALLED_APPS"] = settings.INSTALLED_APPS[:] + ["ansible_base.rbac"]
