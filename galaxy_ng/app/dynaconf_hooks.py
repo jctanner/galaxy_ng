@@ -763,6 +763,6 @@ def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
         if settings.get(key, empty) is empty:
             data[key] = value
 
-    data["INSTALLED_APPS"] = settings.INSTALLED_APPS[:] + ["ansible_base.rbac"]
+    data["INSTALLED_APPS"] = ["ansible_base.rbac", "dynaconf_merge_unique"]
 
     return data
