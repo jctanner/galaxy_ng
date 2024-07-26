@@ -7,7 +7,7 @@ User = get_user_model()
 
 class UserResourcesView(models.Model):
 
-    user = models.ForeignKey(User, to_field='id', db_column='user_id', on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(User, to_field='id', db_column='user_id', on_delete=models.DO_NOTHING, primary_key=True)
     resource = models.ForeignKey(Resource, to_field='id', db_column='resource_id', on_delete=models.DO_NOTHING)
 
     class Meta:
