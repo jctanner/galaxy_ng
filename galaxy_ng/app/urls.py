@@ -18,9 +18,9 @@ from ansible_base.resource_registry.urls import (
     urlpatterns as resource_api_urls,
 )
 
-from ansible_base.rbac.urls import (
-    api_version_urls as dab_rbac_urls,
-)
+#from ansible_base.rbac.urls import (
+#    api_version_urls as dab_rbac_urls,
+#)
 
 API_PATH_PREFIX = settings.GALAXY_API_PATH_PREFIX.strip("/")
 
@@ -56,7 +56,7 @@ urlpatterns = [
 ]
 
 urlpatterns.append(path(f"{API_PATH_PREFIX}/", include(resource_api_urls)))
-urlpatterns.append(path(f"{API_PATH_PREFIX}/", include(dab_rbac_urls)))
+# urlpatterns.append(path(f"{API_PATH_PREFIX}/", include(dab_rbac_urls)))
 
 if settings.get("API_ROOT") != "/pulp/":
     urlpatterns.append(
