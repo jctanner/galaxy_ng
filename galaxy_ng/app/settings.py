@@ -388,6 +388,7 @@ GALAXY_DYNAMIC_SETTINGS = False
 # DJANGO ANSIBLE BASE RESOURCES REGISTRY SETTINGS
 ANSIBLE_BASE_RESOURCE_CONFIG_MODULE = "galaxy_ng.app.api.resource_api"
 ANSIBLE_BASE_ORGANIZATION_MODEL = "galaxy.Organization"
+ANSIBLE_BASE_TEAM_MODEL = "galaxy.Team"
 ANSIBLE_BASE_JWT_VALIDATE_CERT = False
 
 # This is meant to be a url to the resource server

@@ -745,7 +745,8 @@ def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
     data = {}
 
     RBAC_DEFAULTS = [
-        ('ANSIBLE_BASE_TEAM_MODEL', 'galaxy.Team'),
+        #('ANSIBLE_BASE_TEAM_MODEL', 'galaxy.Team'),
+        #('ANSIBLE_BASE_TEAM_MODEL', 'galaxy_ng.Team'),
         ('ANSIBLE_BASE_ROLE_CREATOR_NAME', '{obj._meta.model_name} Creator Role'),
         ('ANSIBLE_BASE_DELETE_REQUIRE_CHANGE', False),
         ('ANSIBLE_BASE_ALLOW_TEAM_PARENTS', False),
@@ -753,14 +754,16 @@ def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
         ('ANSIBLE_BASE_MANAGED_ROLE_REGISTRY', {}),
         ('ANSIBLE_BASE_ALLOW_CUSTOM_ROLES', True),
         ('ANSIBLE_BASE_ALLOW_SINGLETON_ROLES_API', True),  # Can manage system roles in API
-        ('ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES', True),
+        ('ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES', False),
         ('ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES', False),  # CHANGE ME??
         ('ANSIBLE_BASE_BYPASS_SUPERUSER_FLAGS', ['is_superuser']),  # CHANGE ME??
     ]
 
     for key, value in RBAC_DEFAULTS:
+        # if settings.get(key, None) is None:
         if not hasattr(settings, key):
             data[key] = value
 
     data["INSTALLED_APPS"] = settings.INSTALLED_APPS[:] + ["ansible_base.rbac"]
+
     return data
