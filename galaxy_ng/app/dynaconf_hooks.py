@@ -743,13 +743,24 @@ def configure_dab_required_settings(settings: Dynaconf) -> Dict[str, Any]:
 
 def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
     data = {}
-    if not hasattr(settings, 'ANSIBLE_BASE_MANAGED_ROLE_REGISTRY'):
-        data['ANSIBLE_BASE_MANAGED_ROLE_REGISTRY'] = {}
-    if not hasattr(settings, 'ANSIBLE_BASE_ALLOW_SINGLETON_ROLES_API'):
-        data['ANSIBLE_BASE_ALLOW_SINGLETON_ROLES_API'] = True
-    if not hasattr(settings, 'ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES'):
-        data['ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES'] = False
-    if not hasattr(settings, 'ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES'):
-        data['ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES'] = False
+
+    RBAC_DEFAULTS = [
+        ('ANSIBLE_BASE_TEAM_MODEL', 'galaxy.Team'),
+        ('ANSIBLE_BASE_ROLE_CREATOR_NAME', '{obj._meta.model_name} Creator Role'),
+        ('ANSIBLE_BASE_DELETE_REQUIRE_CHANGE', False),
+        ('ANSIBLE_BASE_ALLOW_TEAM_PARENTS', False),
+        ('ANSIBLE_BASE_ALLOW_TEAM_ORG_ADMIN', False),
+        ('ANSIBLE_BASE_MANAGED_ROLE_REGISTRY', {}),
+        ('ANSIBLE_BASE_ALLOW_CUSTOM_ROLES', True),
+        ('ANSIBLE_BASE_ALLOW_SINGLETON_ROLES_API', True),  # Can manage system roles in API
+        ('ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES', True),
+        ('ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES', False),  # CHANGE ME??
+        ('ANSIBLE_BASE_BYPASS_SUPERUSER_FLAGS', ['is_superuser']),  # CHANGE ME??
+    ]
+
+    for key, value in RBAC_DEFAULTS:
+        if not hasattr(settings, key):
+            data[key] = value
+
     data["INSTALLED_APPS"] = settings.INSTALLED_APPS[:] + ["ansible_base.rbac"]
     return data
