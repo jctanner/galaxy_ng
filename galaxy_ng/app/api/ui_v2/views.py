@@ -11,7 +11,7 @@ from .serializers import UserSerializer
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = UserResourcesView.objects.all()
+    queryset = UserResourcesView.objects.all().order_by('user__id')
     serializer_class = UserSerializer
     filter_backends = (DjangoFilterBackend,)
     filterset_class = UserResourcesViewFilter
