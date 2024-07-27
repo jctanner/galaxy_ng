@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'crum',
     'ansible_base.resource_registry',
+    'ansible_base.rbac',
     'social_django',
     'dynaconf_merge_unique',
 ]
