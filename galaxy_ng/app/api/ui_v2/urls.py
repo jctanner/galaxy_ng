@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from galaxy_ng.app import constants
 from .views import UserViewSet
+from .views import TeamViewSet
 
 from ansible_base.rbac.urls import (
     api_version_urls as dab_rbac_urls,
@@ -13,6 +14,7 @@ from ansible_base.rbac.urls import (
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
+router.register(r'teams', TeamViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
