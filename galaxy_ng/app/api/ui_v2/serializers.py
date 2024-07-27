@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from ansible_base.resource_registry.models import Resource
 
 from .models import UserResourcesView
+from .models import OrganizationResourcesView
 from .models import TeamResourcesView
 
 
@@ -61,6 +62,33 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_auth_provider(self, obj):
         return []
+
+    def get_resource(self, obj):
+        return {
+            'resource_type': obj.resource.content_type.name,
+            'ansible_id': obj.resource.ansible_id,
+        }
+
+
+class OrganizationSerializer(serializers.ModelSerializer):
+
+    id = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
+    resource = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrganizationResourcesView
+        fields = [
+            'id',
+            'name',
+            'resource',
+        ]
+
+    def get_id(self, obj):
+        return obj.organization.id
+
+    def get_name(self, obj):
+        return obj.organization.name
 
     def get_resource(self, obj):
         return {

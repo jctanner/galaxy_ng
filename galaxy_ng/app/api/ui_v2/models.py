@@ -18,6 +18,16 @@ class UserResourcesView(models.Model):
         db_table = 'galaxy_dab_user_resources_view'
 
 
+class OrganizationResourcesView(models.Model):
+
+    organization = models.ForeignKey(Organization, to_field='id', db_column='org_id', on_delete=models.DO_NOTHING, primary_key=True)
+    resource = models.ForeignKey(Resource, to_field='id', db_column='resource_id', on_delete=models.DO_NOTHING)
+
+    class Meta:
+        managed = False
+        db_table = 'galaxy_dab_organization_resources_view'
+
+
 class TeamResourcesView(models.Model):
 
     team = models.ForeignKey(Team, to_field='id', db_column='team_id', on_delete=models.DO_NOTHING, primary_key=True)
