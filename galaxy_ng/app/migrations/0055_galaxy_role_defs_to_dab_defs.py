@@ -1,6 +1,12 @@
 from django.db import migrations
 
-from awx.main.migrations._dab_rbac import migrate_to_new_rbac, create_permissions_as_operation, setup_managed_role_definitions
+from django.apps import apps as global_apps
+
+from ansible_base.rbac.management import create_dab_permissions
+
+
+def create_permissions_as_operation(apps, schema_editor):
+    create_dab_permissions(global_apps.get_app_config("galaxy"), apps=apps)
 
 
 def copy_permissions_to_role_definitions(apps, schema_editor):
