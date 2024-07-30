@@ -21,6 +21,36 @@ def test_list_namespace_permissions(galaxy_client):
     }
 
 
+# look for the content_type choices
+def test_role_definition_options(galaxy_client):
+    gc = galaxy_client("admin")
+    # TODO: add support for options in GalaxyClient in galaxykit
+    options_r = gc._http("options", "/api/galaxy/_ui/v2/role_definitions/")
+    assert 'actions' in options_r
+    assert 'POST' in options_r['actions']
+    assert 'permissions' in options_r['actions']['POST']
+    post_data = options_r['actions']['POST']
+    assert 'permissions' in post_data
+    field_data = post_data['permissions']
+    assert 'child' in field_data
+    assert 'choices' in field_data['child']
+    assert set(item['value'] for item in field_data['child']['choices']) == {
+        "galaxy.change_namespace",
+        "galaxy.add_namespace",
+        "galaxy.delete_namespace",
+        "galaxy.add_collectionimport",
+        "galaxy.change_collectionimport",
+        "galaxy.delete_collectionimport",
+        "galaxy.upload_to_namespace",
+        "galaxy.view_collectionimport",
+        "galaxy.view_namespace",
+        'shared.add_team',
+        'shared.change_team',
+        'shared.delete_team',
+        'shared.view_team',
+    }
+
+
 @pytest.fixture(scope="module")
 def custom_ns_role(galaxy_client):
     gc = galaxy_client("admin")
