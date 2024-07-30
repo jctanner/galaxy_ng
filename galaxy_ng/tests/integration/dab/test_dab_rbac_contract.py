@@ -50,6 +50,15 @@ def test_role_definition_options(galaxy_client):
         'shared.view_team',
     }
 
+    assert 'content_type' in post_data
+    field_data = post_data['content_type']
+    assert 'choices' in field_data
+    assert set(item['value'] for item in field_data['choices']) == {
+        'galaxy.collectionimport',
+        'galaxy.namespace',
+        'shared.team',
+    }
+
 
 @pytest.fixture(scope="module")
 def custom_ns_role(galaxy_client):
