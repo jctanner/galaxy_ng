@@ -122,5 +122,24 @@ class Command(BaseCommand):
                 if not rd.permissions.filter(id=rperm.id).exists():
                     print(f'\tadd {rperm}')
                     rd.permissions.add(rperm)
-            rd.save()
 
+            # what are all the content types involved ... ?
+            ctypes = []
+            for permission_name in permissions['permissions']:
+                app_label = permission_name.split('.', 1)[0]
+                perm_name = permission_name.split('.', 1)[1]
+                try:
+                    perm = Permission.objects.get(codename=perm_name, content_type__app_label=app_label)
+                except Exception as e:
+                    print(e)
+                    import epdb; epdb.st()
+                ctypes.append((perm.content_type_id, perm.content_type))
+
+            ctypes = sorted(set(ctypes))
+            if len(ctypes) == 1:
+                if rd.content_type_id != ctypes[0][1]:
+                    print(f'\tsetting {role_name} content type to {ctypes[0][1]}')
+                    rd.content_type_id = ctypes[0][1]
+                    rd.content_type = ctypes[0][1]
+
+            rd.save()
