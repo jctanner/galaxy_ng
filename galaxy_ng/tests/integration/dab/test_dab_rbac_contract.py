@@ -45,7 +45,8 @@ def custom_ns_role(galaxy_client):
             },
         )
         yield r
-    gc.delete(f'/api/galaxy/_ui/v2/role_definitions/{r["id"]}/')
+    with pytest.raises(ValueError) as ctx:
+        gc.delete(f'/api/galaxy/_ui/v2/role_definitions/{r["id"]}/')
 
 
 def test_create_custom_namespace_admin_role(custom_ns_role):
