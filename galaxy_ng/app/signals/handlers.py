@@ -5,6 +5,7 @@ galaxy_ng.app.__init__:PulpGalaxyPluginAppConfig.ready() method.
 """
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.db.models.signals import post_delete
 from pulp_ansible.app.models import (
     AnsibleDistribution,
     AnsibleRepository,
@@ -13,6 +14,15 @@ from pulp_ansible.app.models import (
 )
 from galaxy_ng.app.models import Namespace
 from pulpcore.plugin.models import ContentRedirectContentGuard
+
+from ansible_base.rbac.models import DABPermission
+from ansible_base.rbac.models import RoleTeamAssignment
+from ansible_base.rbac.models import RoleUserAssignment
+from django.contrib.auth.models import Permission
+from pulpcore.plugin.util import assign_role
+from pulpcore.plugin.util import remove_role
+from pulpcore.app.models.role import GroupRole, Role, UserRole
+
 
 
 @receiver(post_save, sender=AnsibleRepository)
@@ -76,3 +86,27 @@ def associate_namespace_metadata(sender, instance, created, **kwargs):
 
     elif ns.metadata_sha256 != instance.metadata_sha256:
         _update_metadata()
+
+
+@receiver(post_save, sender=RoleUserAssignment)
+def copy_dab_user_role(sender, instance, created, **kwargs):
+    '''When a dab role is granted to a user, grant the equivalent pulp role.'''
+    assign_role(instance.role_definition.name, instance.user)
+
+
+@receiver(post_delete, sender=RoleUserAssignment)
+def delete_dab_user_role(sender, instance, **kwargs):
+    '''When a dab role is revoked from a user, revoke the equivalent pulp role.'''
+    remove_role(instance.role_definition.name, instance.user)
+
+
+@receiver(post_save, sender=RoleTeamAssignment)
+def copy_dab_team_role(sender, instance, created, **kwargs):
+    '''When a dab role is granted to a team, grant the equivalent pulp role.'''
+    assign_role(instance.role_definition.name, instance.team.group)
+
+
+@receiver(post_delete, sender=RoleTeamAssignment)
+def delete_dab_team_role(sender, instance, **kwargs):
+    '''When a dab role is revoked from a team, revoke the equivalent pulp role.'''
+    remove_role(instance.role_definition.name, instance.team.group)
