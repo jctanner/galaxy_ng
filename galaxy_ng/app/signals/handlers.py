@@ -134,21 +134,29 @@ def copy_permissions_role_to_role(roleA, roleB):
 
     A call to this method establishes that roleA should become the source-of-truth
     """
-    codenamesA = set(roleA.permissions.values_list('codename', flat=True))
-    codenamesB = set(roleB.permissions.values_list('codename', flat=True))
+    codenamesA = set(roleA.permissions.values_list("codename", flat=True))
+    codenamesB = set(roleB.permissions.values_list("codename", flat=True))
     codenames_to_add = codenamesA - codenamesB
     codenames_to_remove = codenamesB - codenamesA
 
     # The m2m manager needs ids or objects so we need to work with the destination permission model
     # Optimization node: this should never simultaneously have both additions AND removals,
     # so there is no point in optimizing for that case
-    permission_modelB = roleB._meta.get_field('permissions').related_model
+    permission_modelB = roleB._meta.get_field("permissions").related_model
     if codenames_to_add:
-        ids_to_add = list(permission_modelB.objects.filter(codename__in=codenames_to_add).values_list('id', flat=True))
+        ids_to_add = list(
+            permission_modelB.objects.filter(codename__in=codenames_to_add).values_list(
+                "id", flat=True
+            )
+        )
         roleB.permissions.add(*ids_to_add)
 
     if codenames_to_remove:
-        ids_to_remove = list(permission_modelB.objects.filter(codename__in=codenames_to_remove).values_list('id', flat=True))
+        ids_to_remove = list(
+            permission_modelB.objects.filter(codename__in=codenames_to_remove).values_list(
+                "id", flat=True
+            )
+        )
         roleB.permissions.remove(*ids_to_remove)
 
 
@@ -179,12 +187,14 @@ def delete_role_to_role_definition(sender, instance, **kwargs):
 def copy_permission_role_to_rd(instance, action, model, pk_set, reverse, **kwargs):
     if rbac_signal_in_progress():
         return
-    if action.startswith('pre_'):
+    if action.startswith("pre_"):
         return
     if reverse:
         # NOTE: this should not work because of DAB RBAC signals either
         # but this exception should alert us to any problems via downstream testing hopefully, if that is generalized
-        raise RuntimeError('Removal of permssions through reverse relationship not supported due to galaxy_ng signals')
+        raise RuntimeError(
+            "Removal of permssions through reverse relationship not supported due to galaxy_ng signals"
+        )
 
     rd = RoleDefinition.objects.filter(name=instance.name).first()
     if rd:
@@ -223,12 +233,14 @@ def delete_role_definition_to_role(sender, instance, **kwargs):
 def copy_permission_rd_to_role(instance, action, model, pk_set, reverse, **kwargs):
     if rbac_signal_in_progress():
         return
-    if action.startswith('pre_'):
+    if action.startswith("pre_"):
         return
     if reverse:
         # NOTE: this should not work because of DAB RBAC signals either
         # but this exception should alert us to any problems via downstream testing hopefully, if that is generalized
-        raise RuntimeError('Removal of permssions through reverse relationship not supported due to galaxy_ng signals')
+        raise RuntimeError(
+            "Removal of permssions through reverse relationship not supported due to galaxy_ng signals"
+        )
 
     role = Role.objects.filter(name=instance.name).first()
     if role:
@@ -261,16 +273,17 @@ def copy_pulp_user_role(sender, instance, created, **kwargs):
 
 # DAB RBAC assignments to pulp UserRole TeamRole
 
+
 def _get_pulp_role_kwargs(assignment):
     kwargs = {}
     if assignment.object_id:
-        kwargs['obj'] = assignment.content_object
+        kwargs["obj"] = assignment.content_object
     if assignment.user_id:
         entity = assignment.user
     elif assignment.team_id:
         entity = assignment.team.group
     else:
-        raise Exception(f'Could not find entity for DAB assignment {assignment}')
+        raise Exception(f"Could not find entity for DAB assignment {assignment}")
     return ((assignment.role_definition.name, entity), kwargs)
 
 

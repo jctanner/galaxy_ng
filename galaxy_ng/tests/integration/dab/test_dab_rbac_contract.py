@@ -28,15 +28,15 @@ def test_role_definition_options(galaxy_client):
     gc = galaxy_client("admin")
     # TODO: add support for options in GalaxyClient in galaxykit
     options_r = gc._http("options", "/api/galaxy/_ui/v2/role_definitions/")
-    assert 'actions' in options_r
-    assert 'POST' in options_r['actions']
-    assert 'permissions' in options_r['actions']['POST']
-    post_data = options_r['actions']['POST']
-    assert 'permissions' in post_data
-    field_data = post_data['permissions']
-    assert 'child' in field_data
-    assert 'choices' in field_data['child']
-    assert set(item['value'] for item in field_data['child']['choices']) == {
+    assert "actions" in options_r
+    assert "POST" in options_r["actions"]
+    assert "permissions" in options_r["actions"]["POST"]
+    post_data = options_r["actions"]["POST"]
+    assert "permissions" in post_data
+    field_data = post_data["permissions"]
+    assert "child" in field_data
+    assert "choices" in field_data["child"]
+    assert set(item["value"] for item in field_data["child"]["choices"]) == {
         "galaxy.change_namespace",
         "galaxy.add_namespace",
         "galaxy.delete_namespace",
@@ -46,19 +46,19 @@ def test_role_definition_options(galaxy_client):
         "galaxy.upload_to_namespace",
         "galaxy.view_collectionimport",
         "galaxy.view_namespace",
-        'shared.add_team',
-        'shared.change_team',
-        'shared.delete_team',
-        'shared.view_team',
+        "shared.add_team",
+        "shared.change_team",
+        "shared.delete_team",
+        "shared.view_team",
     }
 
-    assert 'content_type' in post_data
-    field_data = post_data['content_type']
-    assert 'choices' in field_data
-    assert set(item['value'] for item in field_data['choices']) == {
-        'galaxy.collectionimport',
-        'galaxy.namespace',
-        'shared.team',
+    assert "content_type" in post_data
+    field_data = post_data["content_type"]
+    assert "choices" in field_data
+    assert set(item["value"] for item in field_data["choices"]) == {
+        "galaxy.collectionimport",
+        "galaxy.namespace",
+        "shared.team",
     }
 
 
@@ -99,7 +99,7 @@ def custom_role_creator(request, galaxy_client):
                 elif "pulp_href" in r:
                     gc.delete(r["pulp_href"])
                 else:
-                    raise RuntimeError(f'Could not figure out how to delete {r}')
+                    raise RuntimeError(f"Could not figure out how to delete {r}")
 
         request.addfinalizer(delete_role)
         return r
@@ -110,18 +110,18 @@ def custom_role_creator(request, galaxy_client):
 @pytest.fixture
 def namespace(galaxy_client):
     gc = galaxy_client("admin")
-    payload = {'name': 'new_namespace'}
+    payload = {"name": "new_namespace"}
     ns = gc.post("_ui/v1/my-namespaces/", body=payload)
     yield ns
     with pytest.raises(ValueError):
         gc.delete(f"_ui/v1/my-namespaces/{ns['name']}/")
 
 
-@pytest.mark.parametrize('by_api', ['dab', 'pulp'])
+@pytest.mark.parametrize("by_api", ["dab", "pulp"])
 def test_create_custom_namespace_system_admin_role(custom_role_creator, galaxy_client, by_api):
-    if by_api == 'dab':
+    if by_api == "dab":
         data = NS_FIXTURE_DATA.copy()
-        data['content_type'] = None  # DAB-ism
+        data["content_type"] = None  # DAB-ism
         system_ns_role = custom_role_creator(data)
     else:
         system_ns_role = custom_role_creator(NS_FIXTURE_DATA.copy(), url_base=PULP_ROLE_URL)
@@ -130,14 +130,14 @@ def test_create_custom_namespace_system_admin_role(custom_role_creator, galaxy_c
 
     gc = galaxy_client("admin")
     list_r = gc.get(f"{DAB_ROLE_URL}?name={NS_FIXTURE_DATA['name']}")
-    assert list_r['count'] == 1
-    dab_role = list_r['results'][0]
-    assert set(dab_role['permissions']) == set(NS_FIXTURE_DATA['permissions'])
+    assert list_r["count"] == 1
+    dab_role = list_r["results"][0]
+    assert set(dab_role["permissions"]) == set(NS_FIXTURE_DATA["permissions"])
 
     list_r = gc.get(f"{PULP_ROLE_URL}?name={NS_FIXTURE_DATA['name']}")
-    assert list_r['count'] == 1
-    pulp_role = list_r['results'][0]
-    assert set(pulp_role['permissions']) == set(NS_FIXTURE_DATA['permissions'])
+    assert list_r["count"] == 1
+    pulp_role = list_r["results"][0]
+    assert set(pulp_role["permissions"]) == set(NS_FIXTURE_DATA["permissions"])
 
 
 def test_give_custom_role_system(galaxy_client, custom_role_creator):
@@ -153,11 +153,11 @@ def test_give_custom_role_system(galaxy_client, custom_role_creator):
     # TODO: make a request as the user and see that it works
 
 
-@pytest.mark.parametrize('by_api', ['dab', 'pulp'])
+@pytest.mark.parametrize("by_api", ["dab", "pulp"])
 def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, by_api):
     data = NS_FIXTURE_DATA.copy()
-    data['name'] = 'galaxy.namespace_custom_object_role'
-    data['content_type'] = 'galaxy.namespace'
+    data["name"] = "galaxy.namespace_custom_object_role"
+    data["content_type"] = "galaxy.namespace"
     custom_obj_role = custom_role_creator(data)
 
     gc = galaxy_client("admin")
@@ -168,27 +168,33 @@ def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, 
     # sanity - assignments should not exist at start of this test
     # Assure the assignment shows up in the pulp API
     r = gc.get(f"_ui/v1/my-namespaces/{namespace['name']}/")
-    assert len(r['users']) == 0
+    assert len(r["users"]) == 0
 
     # Assure the assignment shows up in the DAB RBAC API
-    r = gc.get(f"/api/galaxy/_ui/v2/role_user_assignments/?user={user['id']}&object_id={namespace['id']}")
-    assert r['count'] == 0
+    r = gc.get(
+        f"/api/galaxy/_ui/v2/role_user_assignments/?user={user['id']}&object_id={namespace['id']}"
+    )
+    assert r["count"] == 0
 
     dab_assignment = None
-    if by_api == 'dab':
+    if by_api == "dab":
         dab_assignment = gc.post(
             "/api/galaxy/_ui/v2/role_user_assignments/",
-            body={"role_definition": custom_obj_role["id"], "user": user["id"], "object_id": str(namespace["id"])},
+            body={
+                "role_definition": custom_obj_role["id"],
+                "user": user["id"],
+                "object_id": str(namespace["id"]),
+            },
         )
     else:
         payload = {
-            'name': namespace['name'],
-            'users': [
+            "name": namespace["name"],
+            "users": [
                 {
-                    'id': user['id'],
-                    'object_roles': [custom_obj_role['name']],
+                    "id": user["id"],
+                    "object_roles": [custom_obj_role["name"]],
                 }
-            ]
+            ],
         }
         gc.put(f"_ui/v1/my-namespaces/{namespace['name']}/", body=payload)
 
@@ -196,10 +202,12 @@ def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, 
 
     # Assure the assignment shows up in the pulp API
     r = gc.get(f"_ui/v1/my-namespaces/{namespace['name']}/")
-    assert len(r['users']) == 1
+    assert len(r["users"]) == 1
 
     # Assure the assignment shows up in the DAB RBAC API
-    r = gc.get(f"/api/galaxy/_ui/v2/role_user_assignments/?user={user['id']}&object_id={namespace['id']}")
-    assert r['count'] == 1
+    r = gc.get(
+        f"/api/galaxy/_ui/v2/role_user_assignments/?user={user['id']}&object_id={namespace['id']}"
+    )
+    assert r["count"] == 1
     if dab_assignment:
-        assert r['results'][0]['id'] == dab_assignment['id']
+        assert r["results"][0]["id"] == dab_assignment["id"]
