@@ -124,47 +124,6 @@ def rbac_signal_in_progress():
     return bool(rbac_state.dab_action or rbac_state.pulp_action)
 
 
-# Pulp Role to DAB RBAC RoleDefinition objects
-
-
-@receiver(post_save, sender=Role)
-def copy_role_to_role_definition(sender, instance, created, **kwargs):
-    """When a dab role is granted to a user, grant the equivalent pulp role."""
-    if rbac_signal_in_progress():
-        return
-    with pulp_rbac_signals():
-        rd = RoleDefinition.objects.filter(name=instance.name).first()
-        if not rd:
-            RoleDefinition.objects.create(name=instance.name)
-        # TODO: other fields? like description
-
-
-# DAB RBAC RoleDefinition objects to Pulp Role objects
-
-
-@receiver(post_save, sender=RoleDefinition)
-def copy_role_definition_to_role(sender, instance, created, **kwargs):
-    """When a dab role is granted to a user, grant the equivalent pulp role."""
-    if rbac_signal_in_progress():
-        return
-    with dab_rbac_signals():
-        role = Role.objects.filter(name=instance.name).first()
-        if not role:
-            Role.objects.create(name=instance.name)
-        # TODO: other fields? like description
-
-
-@receiver(post_delete, sender=RoleDefinition)
-def delete_role_definition_to_role(sender, instance, **kwargs):
-    """When a dab role is granted to a user, grant the equivalent pulp role."""
-    if rbac_signal_in_progress():
-        return
-    with dab_rbac_signals():
-        role = Role.objects.filter(name=instance.name).first()
-        if role:
-            role.delete()
-
-
 def copy_permissions_role_to_role(roleA, roleB):
     """Make permissions on roleB match roleA
 
@@ -191,6 +150,74 @@ def copy_permissions_role_to_role(roleA, roleB):
     if codenames_to_remove:
         ids_to_remove = list(permission_modelB.objects.filter(codename__in=codenames_to_remove).values_list('id', flat=True))
         roleB.permissions.remove(*ids_to_remove)
+
+
+# Pulp Role to DAB RBAC RoleDefinition objects
+@receiver(post_save, sender=Role)
+def copy_role_to_role_definition(sender, instance, created, **kwargs):
+    """When a dab role is granted to a user, grant the equivalent pulp role."""
+    if rbac_signal_in_progress():
+        return
+    with pulp_rbac_signals():
+        rd = RoleDefinition.objects.filter(name=instance.name).first()
+        if not rd:
+            RoleDefinition.objects.create(name=instance.name)
+        # TODO: other fields? like description
+
+
+@receiver(post_delete, sender=Role)
+def delete_role_to_role_definition(sender, instance, **kwargs):
+    """When a dab role is granted to a user, grant the equivalent pulp role."""
+    if rbac_signal_in_progress():
+        return
+    with dab_rbac_signals():
+        rd = RoleDefinition.objects.filter(name=instance.name).first()
+        if rd:
+            rd.delete()
+
+
+def copy_permission_role_to_rd(instance, action, model, pk_set, reverse, **kwargs):
+    if rbac_signal_in_progress():
+        return
+    if action.startswith('pre_'):
+        return
+    if reverse:
+        # NOTE: this should not work because of DAB RBAC signals either
+        # but this exception should alert us to any problems via downstream testing hopefully, if that is generalized
+        raise RuntimeError('Removal of permssions through reverse relationship not supported due to galaxy_ng signals')
+
+    rd = RoleDefinition.objects.filter(name=instance.name).first()
+    if rd:
+        copy_permissions_role_to_role(instance, rd)
+
+
+m2m_changed.connect(copy_permission_role_to_rd, sender=Role.permissions.through)
+
+
+# DAB RBAC RoleDefinition objects to Pulp Role objects
+
+
+@receiver(post_save, sender=RoleDefinition)
+def copy_role_definition_to_role(sender, instance, created, **kwargs):
+    """When a dab role is granted to a user, grant the equivalent pulp role."""
+    if rbac_signal_in_progress():
+        return
+    with dab_rbac_signals():
+        role = Role.objects.filter(name=instance.name).first()
+        if not role:
+            Role.objects.create(name=instance.name)
+        # TODO: other fields? like description
+
+
+@receiver(post_delete, sender=RoleDefinition)
+def delete_role_definition_to_role(sender, instance, **kwargs):
+    """When a dab role is granted to a user, grant the equivalent pulp role."""
+    if rbac_signal_in_progress():
+        return
+    with dab_rbac_signals():
+        role = Role.objects.filter(name=instance.name).first()
+        if role:
+            role.delete()
 
 
 def copy_permission_rd_to_role(instance, action, model, pk_set, reverse, **kwargs):

@@ -62,52 +62,49 @@ def test_role_definition_options(galaxy_client):
     }
 
 
+# This is role data that works in both DAB and pulp roles
 NS_FIXTURE_DATA = {
-    "name": "My own Namespace admin role",
+    "name": "galaxy.namespace_custom_system_role",
+    "description": "A description for my new role from FIXTURE_DATA",
     "permissions": [
         "galaxy.change_namespace",
         "galaxy.delete_namespace",
         "galaxy.view_namespace",
         "galaxy.view_collectionimport",
     ],
-    "content_type": None,
 }
 
-
-@pytest.fixture(scope="session")
-def custom_role_creator(galaxy_client):
-    @contextlib.contextmanager
-    def _rf(data):
-        gc = galaxy_client("admin")
-        list_r = gc.get(f"/api/galaxy/_ui/v2/role_definitions/?name={data['name']}")
-        if list_r["count"] == 1:
-            r = list_r["results"][0]
-            yield r
-        elif list_r["count"] > 1:
-            raise RuntimeError(f"Found too many role_definitions with expected name {data['name']}")
-        else:
-            r = gc.post("/api/galaxy/_ui/v2/role_definitions/", body=data)
-            yield r
-        with pytest.raises(ValueError):
-            gc.delete(f'/api/galaxy/_ui/v2/role_definitions/{r["id"]}/')
-    return _rf
-
-
-@pytest.fixture(scope="module")
-def custom_ns_role(galaxy_client, custom_role_creator):
-    with custom_role_creator(NS_FIXTURE_DATA) as ns_role:
-        yield ns_role
+DAB_ROLE_URL = "/api/galaxy/_ui/v2/role_definitions/"
+PULP_ROLE_URL = "/api/galaxy/pulp/api/v3/roles/"
 
 
 # these fixtures are function-scoped so they will be deleted
 # deleting the role will delete all associated permissions
 @pytest.fixture
-def custom_obj_role(galaxy_client, custom_role_creator):
-    data = NS_FIXTURE_DATA.copy()
-    data['name'] = 'galaxy.namespace_custom_object_role'
-    data['content_type'] = 'galaxy.namespace'
-    with custom_role_creator(data) as ns_role:
-        yield ns_role
+def custom_role_creator(request, galaxy_client):
+    def _rf(data, url_base=DAB_ROLE_URL):
+        gc = galaxy_client("admin")
+        list_r = gc.get(f"{url_base}?name={data['name']}")
+        if list_r["count"] == 1:
+            r = list_r["results"][0]
+        elif list_r["count"] > 1:
+            raise RuntimeError(f"Found too many {url_base} with expected name {data['name']}")
+        else:
+            r = gc.post(url_base, body=data)
+
+        def delete_role():
+            with pytest.raises(ValueError):
+                if "id" in r:
+                    gc.delete(f'{url_base}{r["id"]}/')
+                elif "pulp_href" in r:
+                    gc.delete(r["pulp_href"])
+                else:
+                    raise RuntimeError(f'Could not figure out how to delete {r}')
+
+        request.addfinalizer(delete_role)
+        return r
+
+    return _rf
 
 
 @pytest.fixture
@@ -120,24 +117,49 @@ def namespace(galaxy_client):
         gc.delete(f"_ui/v1/my-namespaces/{ns['name']}/")
 
 
-def test_create_custom_namespace_admin_role(custom_ns_role):
-    assert custom_ns_role["name"] == NS_FIXTURE_DATA["name"]
+@pytest.mark.parametrize('by_api', ['dab', 'pulp'])
+def test_create_custom_namespace_system_admin_role(custom_role_creator, galaxy_client, by_api):
+    if by_api == 'dab':
+        data = NS_FIXTURE_DATA.copy()
+        data['content_type'] = None  # DAB-ism
+        system_ns_role = custom_role_creator(data)
+    else:
+        system_ns_role = custom_role_creator(NS_FIXTURE_DATA.copy(), url_base=PULP_ROLE_URL)
+
+    assert system_ns_role["name"] == NS_FIXTURE_DATA["name"]
+
+    gc = galaxy_client("admin")
+    list_r = gc.get(f"{DAB_ROLE_URL}?name={NS_FIXTURE_DATA['name']}")
+    assert list_r['count'] == 1
+    dab_role = list_r['results'][0]
+    assert set(dab_role['permissions']) == set(NS_FIXTURE_DATA['permissions'])
+
+    list_r = gc.get(f"{PULP_ROLE_URL}?name={NS_FIXTURE_DATA['name']}")
+    assert list_r['count'] == 1
+    pulp_role = list_r['results'][0]
+    assert set(pulp_role['permissions']) == set(NS_FIXTURE_DATA['permissions'])
 
 
-def test_give_custom_role_system(galaxy_client, custom_ns_role):
+def test_give_custom_role_system(galaxy_client, custom_role_creator):
+    system_ns_role = custom_role_creator(NS_FIXTURE_DATA)
     gc = galaxy_client("admin")
     user_r = gc.get("/api/galaxy/_ui/v2/users/")
     assert user_r["count"] > 0
     user = user_r["results"][0]
     assignment = gc.post(
         "/api/galaxy/_ui/v2/role_user_assignments/",
-        body={"role_definition": custom_ns_role["id"], "user": user["id"]},
+        body={"role_definition": system_ns_role["id"], "user": user["id"]},
     )
     # TODO: make a request as the user and see that it works
 
 
 @pytest.mark.parametrize('by_api', ['dab', 'pulp'])
-def test_give_custom_role_object(galaxy_client, custom_obj_role, namespace, by_api):
+def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, by_api):
+    data = NS_FIXTURE_DATA.copy()
+    data['name'] = 'galaxy.namespace_custom_object_role'
+    data['content_type'] = 'galaxy.namespace'
+    custom_obj_role = custom_role_creator(data)
+
     gc = galaxy_client("admin")
     user_r = gc.get("/api/galaxy/_ui/v2/users/")
     assert user_r["count"] > 0
