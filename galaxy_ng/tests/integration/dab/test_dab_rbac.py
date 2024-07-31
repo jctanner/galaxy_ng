@@ -11,13 +11,11 @@ from galaxykit.collections import upload_test_collection
 pytestmark = pytest.mark.qa  # noqa: F821
 
 
-#@pytest.mark.deployment_standalone
-#@pytest.mark.min_hub_version("4.10dev")
-#@pytest.mark.skipif(
-#    os.getenv("ENABLE_DAB_TESTS"),
-#    reason="Skipping test because ENABLE_DAB_TESTS is set"
-#)
-#@pytest.mark.skip_in_gw
+@pytest.mark.deployment_standalone
+@pytest.mark.skipif(
+    not os.getenv("ENABLE_DAB_TESTS"),
+    reason="Skipping test because ENABLE_DAB_TESTS is not set"
+)
 def test_dab_rbac_namespace_owner_by_user(galaxy_client, random_namespace, random_username):
     """Tests the galaxy.system_auditor role can be added to a user and has the right perms."""
 
