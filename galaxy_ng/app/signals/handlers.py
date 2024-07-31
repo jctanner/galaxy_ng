@@ -252,23 +252,58 @@ m2m_changed.connect(copy_permission_rd_to_role, sender=RoleDefinition.permission
 
 # Pulp UserRole and TeamRole to DAB RBAC assignments
 
-# TODO:
-# - UserRole deletion
-# - TeamRole creation
-# - TeamRole deletion
-
 
 @receiver(post_save, sender=UserRole)
 def copy_pulp_user_role(sender, instance, created, **kwargs):
-    """When a dab role is granted to a user, grant the equivalent pulp role."""
+    """When a pulp role is granted to a user, grant the equivalent dab role."""
     if rbac_signal_in_progress():
         return
     with pulp_rbac_signals():
-        rd = RoleDefinition.objects.get(name=instance.role.name)
-        if instance.content_object:
-            rd.give_permission(instance.user, instance.content_object)
-        else:
-            rd.give_global_permission(instance.user)
+        rd = RoleDefinition.objects.filter(name=instance.role.name).first()
+        if rd:
+            if instance.content_object:
+                rd.give_permission(instance.user, instance.content_object)
+            else:
+                rd.give_global_permission(instance.user)
+
+
+@receiver(post_delete, sender=UserRole)
+def delete_pulp_user_role(sender, instance, **kwargs):
+    if rbac_signal_in_progress():
+        return
+    with pulp_rbac_signals():
+        rd = RoleDefinition.objects.filter(name=instance.role.name).first()
+        if rd:
+            if instance.content_object:
+                rd.remove_permission(instance.user, instance.content_object)
+            else:
+                rd.remove_global_permission(instance.user)
+
+
+@receiver(post_save, sender=GroupRole)
+def copy_pulp_group_role(sender, instance, created, **kwargs):
+    if rbac_signal_in_progress():
+        return
+    with pulp_rbac_signals():
+        rd = RoleDefinition.objects.filter(name=instance.role.name).first()
+        if rd:
+            if instance.content_object:
+                rd.give_permission(instance.group.team, instance.content_object)
+            else:
+                rd.give_global_permission(instance.group.team)
+
+
+@receiver(post_delete, sender=GroupRole)
+def delete_pulp_group_role(sender, instance, **kwargs):
+    if rbac_signal_in_progress():
+        return
+    with pulp_rbac_signals():
+        rd = RoleDefinition.objects.filter(name=instance.role.name).first()
+        if rd:
+            if instance.content_object:
+                rd.remove_permission(instance.group.team, instance.content_object)
+            else:
+                rd.remove_global_permission(instance.group.team)
 
 
 # DAB RBAC assignments to pulp UserRole TeamRole

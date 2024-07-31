@@ -1,10 +1,7 @@
 import pytest
 
-import contextlib
-
 
 # This tests the basic DAB RBAC contract using custom roles to do things
-
 
 def test_list_namespace_permissions(galaxy_client):
     gc = galaxy_client("admin")
@@ -146,15 +143,30 @@ def test_give_custom_role_system(galaxy_client, custom_role_creator):
     user_r = gc.get("/api/galaxy/_ui/v2/users/")
     assert user_r["count"] > 0
     user = user_r["results"][0]
-    assignment = gc.post(
+    gc.post(
         "/api/galaxy/_ui/v2/role_user_assignments/",
         body={"role_definition": system_ns_role["id"], "user": user["id"]},
     )
+    # TODO: verify that assignment is seen in DAB and pulp APIs
     # TODO: make a request as the user and see that it works
 
 
+def assert_assignments(gc, user, namespace, expected=0):
+    # Assure the assignment shows up in the pulp API
+    r = gc.get(f"_ui/v1/my-namespaces/{namespace['name']}/")
+    assert len(r["users"]) == expected
+
+    # Assure the assignment shows up in the DAB RBAC API
+    r = gc.get(
+        f"/api/galaxy/_ui/v2/role_user_assignments/?user={user['id']}&object_id={namespace['id']}"
+    )
+    assert r["count"] == expected
+
+
 @pytest.mark.parametrize("by_api", ["dab", "pulp"])
-def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, by_api):
+def test_give_custom_role_object(
+    request, galaxy_client, custom_role_creator, namespace, by_api, random_username
+):
     data = NS_FIXTURE_DATA.copy()
     data["name"] = "galaxy.namespace_custom_object_role"
     data["content_type"] = "galaxy.namespace"
@@ -166,16 +178,9 @@ def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, 
     user = user_r["results"][0]
 
     # sanity - assignments should not exist at start of this test
-    # Assure the assignment shows up in the pulp API
-    r = gc.get(f"_ui/v1/my-namespaces/{namespace['name']}/")
-    assert len(r["users"]) == 0
+    assert_assignments(gc, user, namespace, 0)
 
-    # Assure the assignment shows up in the DAB RBAC API
-    r = gc.get(
-        f"/api/galaxy/_ui/v2/role_user_assignments/?user={user['id']}&object_id={namespace['id']}"
-    )
-    assert r["count"] == 0
-
+    # Give the user permission to the namespace object
     dab_assignment = None
     if by_api == "dab":
         dab_assignment = gc.post(
@@ -200,14 +205,17 @@ def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, 
 
     # TODO: make a request as the user and see that it works
 
-    # Assure the assignment shows up in the pulp API
-    r = gc.get(f"_ui/v1/my-namespaces/{namespace['name']}/")
-    assert len(r["users"]) == 1
+    assert_assignments(gc, user, namespace, 1)
 
-    # Assure the assignment shows up in the DAB RBAC API
-    r = gc.get(
-        f"/api/galaxy/_ui/v2/role_user_assignments/?user={user['id']}&object_id={namespace['id']}"
-    )
-    assert r["count"] == 1
-    if dab_assignment:
-        assert r["results"][0]["id"] == dab_assignment["id"]
+    # Remove the permission from before
+    if by_api == "dab":
+        with pytest.raises(ValueError):
+            gc.delete(f"/api/galaxy/_ui/v2/role_user_assignments/{dab_assignment['id']}/")
+    else:
+        payload = {
+            "name": namespace["name"],
+            "users": [],
+        }
+        gc.put(f"_ui/v1/my-namespaces/{namespace['name']}/", body=payload)
+
+    assert_assignments(gc, user, namespace, 0)
