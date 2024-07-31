@@ -10,6 +10,7 @@ import contextlib
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.db.models.signals import post_delete
+from django.db.models.signals import m2m_changed
 from pulp_ansible.app.models import (
     AnsibleDistribution,
     AnsibleRepository,
@@ -118,13 +119,17 @@ def dab_rbac_signals():
         rbac_state.dab_action = prior_value
 
 
+def rbac_signal_in_progress():
+    return bool(rbac_state.dab_action or rbac_state.pulp_action)
+
+
 # Pulp Role to DAB RBAC RoleDefinition objects
 
 
 @receiver(post_save, sender=Role)
 def copy_role_to_role_definition(sender, instance, created, **kwargs):
     """When a dab role is granted to a user, grant the equivalent pulp role."""
-    if rbac_state.pulp_action:
+    if rbac_signal_in_progress():
         return
     with pulp_rbac_signals():
         rd = RoleDefinition.objects.filter(name=instance.name).first()
@@ -139,7 +144,7 @@ def copy_role_to_role_definition(sender, instance, created, **kwargs):
 @receiver(post_save, sender=RoleDefinition)
 def copy_role_definition_to_role(sender, instance, created, **kwargs):
     """When a dab role is granted to a user, grant the equivalent pulp role."""
-    if rbac_state.dab_action:
+    if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
         role = Role.objects.filter(name=instance.name).first()
@@ -151,7 +156,7 @@ def copy_role_definition_to_role(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=RoleDefinition)
 def delete_role_definition_to_role(sender, instance, **kwargs):
     """When a dab role is granted to a user, grant the equivalent pulp role."""
-    if rbac_state.dab_action:
+    if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
         role = Role.objects.filter(name=instance.name).first()
@@ -159,10 +164,50 @@ def delete_role_definition_to_role(sender, instance, **kwargs):
             role.delete()
 
 
-# m2m_changed
-# - adding
-# - removing
-# post_delete
+def copy_permissions_role_to_role(roleA, roleB):
+    """Make permissions on roleB match roleA
+
+    Our RoleDefinition and Role models, and respective permission models,
+    are similiar enough to use a shortcut.
+    Without knowing the type of roleA or roleB, we can inspect permission codenames
+    and then just make sure they match.
+
+    A call to this method establishes that roleA should become the source-of-truth
+    """
+    codenamesA = set(roleA.permissions.values_list('codename', flat=True))
+    codenamesB = set(roleB.permissions.values_list('codename', flat=True))
+    codenames_to_add = codenamesA - codenamesB
+    codenames_to_remove = codenamesB - codenamesA
+
+    # The m2m manager needs ids or objects so we need to work with the destination permission model
+    # Optimization node: this should never simultaneously have both additions AND removals,
+    # so there is no point in optimizing for that case
+    permission_modelB = roleB._meta.get_field('permissions').related_model
+    if codenames_to_add:
+        ids_to_add = list(permission_modelB.objects.filter(codename__in=codenames_to_add).values_list('id', flat=True))
+        roleB.permissions.add(*ids_to_add)
+
+    if codenames_to_remove:
+        ids_to_remove = list(permission_modelB.objects.filter(codename__in=codenames_to_remove).values_list('id', flat=True))
+        roleB.permissions.remove(*ids_to_remove)
+
+
+def copy_permission_rd_to_role(instance, action, model, pk_set, reverse, **kwargs):
+    if rbac_signal_in_progress():
+        return
+    if action.startswith('pre_'):
+        return
+    if reverse:
+        # NOTE: this should not work because of DAB RBAC signals either
+        # but this exception should alert us to any problems via downstream testing hopefully, if that is generalized
+        raise RuntimeError('Removal of permssions through reverse relationship not supported due to galaxy_ng signals')
+
+    role = Role.objects.filter(name=instance.name).first()
+    if role:
+        copy_permissions_role_to_role(instance, role)
+
+
+m2m_changed.connect(copy_permission_rd_to_role, sender=RoleDefinition.permissions.through)
 
 
 # Pulp UserRole and TeamRole to DAB RBAC assignments
@@ -176,7 +221,7 @@ def delete_role_definition_to_role(sender, instance, **kwargs):
 @receiver(post_save, sender=UserRole)
 def copy_pulp_user_role(sender, instance, created, **kwargs):
     """When a dab role is granted to a user, grant the equivalent pulp role."""
-    if rbac_state.pulp_action:
+    if rbac_signal_in_progress():
         return
     with pulp_rbac_signals():
         rd = RoleDefinition.objects.get(name=instance.role.name)
@@ -188,38 +233,60 @@ def copy_pulp_user_role(sender, instance, created, **kwargs):
 
 # DAB RBAC assignments to pulp UserRole TeamRole
 
+def _get_pulp_role_kwargs(assignment):
+    kwargs = {}
+    if assignment.object_id:
+        kwargs['obj'] = assignment.content_object
+    if assignment.user_id:
+        entity = assignment.user
+    elif assignment.team_id:
+        entity = assignment.team.group
+    else:
+        raise Exception(f'Could not find entity for DAB assignment {assignment}')
+    return ((assignment.role_definition.name, entity), kwargs)
+
+
+def _apply_dab_assignment(assignment):
+    args, kwargs = _get_pulp_role_kwargs(assignment)
+    assign_role(*args, **kwargs)
+
+
+def _unapply_dab_assignment(assignment):
+    args, kwargs = _get_pulp_role_kwargs(assignment)
+    remove_role(*args, **kwargs)
+
 
 @receiver(post_save, sender=RoleUserAssignment)
-def copy_dab_user_role(sender, instance, created, **kwargs):
+def copy_dab_user_role_assignment(sender, instance, created, **kwargs):
     """When a dab role is granted to a user, grant the equivalent pulp role."""
-    if rbac_state.dab_action:
+    if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
-        assign_role(instance.role_definition.name, instance.user)
+        _apply_dab_assignment(instance)
 
 
 @receiver(post_delete, sender=RoleUserAssignment)
-def delete_dab_user_role(sender, instance, **kwargs):
+def delete_dab_user_role_assignment(sender, instance, **kwargs):
     """When a dab role is revoked from a user, revoke the equivalent pulp role."""
-    if rbac_state.dab_action:
+    if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
-        remove_role(instance.role_definition.name, instance.user)
+        _unapply_dab_assignment(instance)
 
 
 @receiver(post_save, sender=RoleTeamAssignment)
-def copy_dab_team_role(sender, instance, created, **kwargs):
+def copy_dab_team_role_assignment(sender, instance, created, **kwargs):
     """When a dab role is granted to a team, grant the equivalent pulp role."""
-    if rbac_state.dab_action:
+    if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
-        assign_role(instance.role_definition.name, instance.team.group)
+        _apply_dab_assignment(instance)
 
 
 @receiver(post_delete, sender=RoleTeamAssignment)
-def delete_dab_team_role(sender, instance, **kwargs):
+def delete_dab_team_role_assignment(sender, instance, **kwargs):
     """When a dab role is revoked from a team, revoke the equivalent pulp role."""
-    if rbac_state.dab_action:
+    if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
-        remove_role(instance.role_definition.name, instance.team.group)
+        _unapply_dab_assignment(instance)

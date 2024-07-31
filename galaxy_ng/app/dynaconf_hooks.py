@@ -760,6 +760,7 @@ def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
         ('ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES', True),
         ('ANSIBLE_BASE_BYPASS_SUPERUSER_FLAGS', ['is_superuser']),
         ('ANSIBLE_BASE_EVALUATIONS_IGNORE_CONFLICTS', False),
+        ('ANSIBLE_BASE_CACHE_PARENT_PERMISSIONS', False),
     ]
 
     for key, value in RBAC_DEFAULTS:
