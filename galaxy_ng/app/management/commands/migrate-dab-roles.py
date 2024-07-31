@@ -1,11 +1,4 @@
-import os
-
-import django_guid
 from django.core.management.base import BaseCommand
-
-
-# Set logging_uid, this does not seem to get generated when task called via management command
-# django_guid.set_guid(django_guid.utils.generate_guid())
 
 
 class Command(BaseCommand):
@@ -15,7 +8,7 @@ class Command(BaseCommand):
         print("Migrating role definitions for DAB ...")
 
         from django.contrib.auth.models import Permission
-        from django.contrib.contenttypes.models import ContentType
+        # from django.contrib.contenttypes.models import ContentType
         from ansible_base.rbac.models import RoleDefinition
         from ansible_base.rbac.models import DABPermission
 
@@ -28,15 +21,23 @@ class Command(BaseCommand):
             'core.task_owner': 'Allow all actions on a task.',
             'core.taskschedule_owner': 'Allow all actions on a task schedule.',
             'galaxy.ansible_repository_owner': 'Manage ansible repositories.',
-            'galaxy.collection_admin': 'Create, delete and change collection namespaces. Upload and delete collections. Sync collections from remotes. Approve and reject collections.',
+            'galaxy.collection_admin': (
+                'Create, delete and change collection namespaces. '
+                + 'Upload and delete collections. Sync collections from remotes.'
+                + ' Approve and reject collections.'
+            ),
             'galaxy.collection_curator': 'Approve, reject and sync collections from remotes.',
             'galaxy.collection_namespace_owner': 'Change and upload collections to namespaces.',
             'galaxy.collection_publisher': 'Upload and modify collections.',
             'galaxy.collection_remote_owner': 'Manage collection remotes.',
             'galaxy.content_admin': 'Manage all content types.',
-            'galaxy.execution_environment_admin': 'Push, delete and change execution environments. Create, delete and change remote registries.',
+            'galaxy.execution_environment_admin': (
+                'Push, delete and change execution environments.'
+                + ' Create, delete and change remote registries.'
+            ),
             'galaxy.execution_environment_collaborator': 'Change existing execution environments.',
-            'galaxy.execution_environment_namespace_owner': 'Create and update execution environments under existing container namespaces.',
+            'galaxy.execution_environment_namespace_owner':
+                'Create and update execution environments under existing container namespaces.',
             'galaxy.execution_environment_publisher': 'Push and change execution environments.',
             'galaxy.group_admin': 'View, add, remove and change groups.',
             'galaxy.synclist_owner': 'View, add, remove and change synclists.',
@@ -72,7 +73,7 @@ class Command(BaseCommand):
             app_label = dabperm.content_type.app_label
             dabperm_map[(app_label, ctype_model, perm_codename)] = dabperm
 
-        # For every permission in the system that galaxy cares about, make a dabpermission 
+        # For every permission in the system that galaxy cares about, make a dabpermission
         for perm in Permission.objects.all():
 
             # skip if not in the list of things galaxy cares about ...
@@ -80,13 +81,17 @@ class Command(BaseCommand):
             if gkey not in galaxy_model_perms:
                 continue
 
-            model = perm.content_type.model
+            # model = perm.content_type.model
             dkey = (perm.content_type.app_label, perm.content_type.model, perm.codename)
             if dkey in dabperm_map:
                 dabperm = dabperm_map[dkey]
             else:
                 print(f'creating perm {dkey} ..')
-                dabperm = DABPermission.objects.create(codename=perm.codename, content_type=perm.content_type, name=perm.name)
+                dabperm = DABPermission.objects.create(
+                    codename=perm.codename,
+                    content_type=perm.content_type,
+                    name=perm.name
+                )
                 dabperm_map[dkey] = dabperm
 
         # copy all of the galaxy roles to dab roledefinitions ...
@@ -101,13 +106,14 @@ class Command(BaseCommand):
                 app_name = pcode_parts[0]
                 perm_name = pcode_parts[1]
 
-                for k,v in dabperm_map.items():
+                for k, v in dabperm_map.items():
                     if k[0] == app_name and k[2] == perm_name:
                         related_perms.append(v)
                         break
 
             # we need ALL of the necessary permissions ...
-            assert len(related_perms) == len(permissions['permissions']), f"didn't find all the permissions for {role_name}"
+            assert len(related_perms) == \
+                len(permissions['permissions']), f"didn't find all the permissions for {role_name}"
 
             # get or make the def ...
             rd, created = RoleDefinition.objects.get_or_create(name=role_name)
@@ -129,10 +135,14 @@ class Command(BaseCommand):
                 app_label = permission_name.split('.', 1)[0]
                 perm_name = permission_name.split('.', 1)[1]
                 try:
-                    perm = Permission.objects.get(codename=perm_name, content_type__app_label=app_label)
+                    perm = Permission.objects.get(
+                        codename=perm_name,
+                        content_type__app_label=app_label
+                    )
                 except Exception as e:
-                    print(e)
-                    import epdb; epdb.st()
+                    # print(e)
+                    # import epdb; epdb.st()
+                    raise e
                 ctypes.append((perm.content_type_id, perm.content_type))
 
             ctypes = sorted(set(ctypes))

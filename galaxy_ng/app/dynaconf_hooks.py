@@ -753,10 +753,12 @@ def configure_dab_rbac_settings(settings: Dynaconf) -> Dict[str, Any]:
         ('ANSIBLE_BASE_MANAGED_ROLE_REGISTRY', {}),
         ('ANSIBLE_BASE_ALLOW_CUSTOM_ROLES', True),
         ('ANSIBLE_BASE_ALLOW_CUSTOM_TEAM_ROLES', True),
-        ('ANSIBLE_BASE_ALLOW_SINGLETON_ROLES_API', True),  # Can manage system roles in API
-        ('ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES', True), # required for user level rbac roles&permissions
-        ('ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES', True),  # CHANGE ME??
-        ('ANSIBLE_BASE_BYPASS_SUPERUSER_FLAGS', ['is_superuser']),  # CHANGE ME??
+        # Can manage system roles in API
+        ('ANSIBLE_BASE_ALLOW_SINGLETON_ROLES_API', True),
+        # required for user level rbac roles&permissions
+        ('ANSIBLE_BASE_ALLOW_SINGLETON_USER_ROLES', True),
+        ('ANSIBLE_BASE_ALLOW_SINGLETON_TEAM_ROLES', True),
+        ('ANSIBLE_BASE_BYPASS_SUPERUSER_FLAGS', ['is_superuser']),
         ('ANSIBLE_BASE_EVALUATIONS_IGNORE_CONFLICTS', False),
     ]
 

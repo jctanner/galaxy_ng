@@ -1,7 +1,5 @@
 # from django.contrib.auth.models import User
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
-from ansible_base.resource_registry.models import Resource
 
 from .models import UserResourcesView
 from .models import OrganizationResourcesView

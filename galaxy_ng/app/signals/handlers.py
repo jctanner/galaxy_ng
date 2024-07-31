@@ -15,14 +15,10 @@ from pulp_ansible.app.models import (
 from galaxy_ng.app.models import Namespace
 from pulpcore.plugin.models import ContentRedirectContentGuard
 
-from ansible_base.rbac.models import DABPermission
 from ansible_base.rbac.models import RoleTeamAssignment
 from ansible_base.rbac.models import RoleUserAssignment
-from django.contrib.auth.models import Permission
 from pulpcore.plugin.util import assign_role
 from pulpcore.plugin.util import remove_role
-from pulpcore.app.models.role import GroupRole, Role, UserRole
-
 
 
 @receiver(post_save, sender=AnsibleRepository)

@@ -5,7 +5,10 @@ from .models import TeamResourcesView
 
 
 class UserResourcesViewFilter(django_filters.FilterSet):
-    resource__ansible_id = django_filters.CharFilter(field_name='resource__ansible_id', lookup_expr='exact')
+    resource__ansible_id = django_filters.CharFilter(
+        field_name='resource__ansible_id',
+        lookup_expr='exact'
+    )
 
     class Meta:
         model = UserResourcesView
@@ -13,7 +16,10 @@ class UserResourcesViewFilter(django_filters.FilterSet):
 
 
 class OrganizationResourcesViewFilter(django_filters.FilterSet):
-    resource__ansible_id = django_filters.CharFilter(field_name='resource__ansible_id', lookup_expr='exact')
+    resource__ansible_id = django_filters.CharFilter(
+        field_name='resource__ansible_id',
+        lookup_expr='exact'
+    )
 
     class Meta:
         model = OrganizationResourcesView
@@ -21,7 +27,10 @@ class OrganizationResourcesViewFilter(django_filters.FilterSet):
 
 
 class TeamResourcesViewFilter(django_filters.FilterSet):
-    resource__ansible_id = django_filters.CharFilter(field_name='resource__ansible_id', lookup_expr='exact')
+    resource__ansible_id = django_filters.CharFilter(
+        field_name='resource__ansible_id',
+        lookup_expr='exact'
+    )
 
     class Meta:
         model = TeamResourcesView

@@ -18,10 +18,6 @@ from ansible_base.resource_registry.urls import (
     urlpatterns as resource_api_urls,
 )
 
-#from ansible_base.rbac.urls import (
-#    api_version_urls as dab_rbac_urls,
-#)
-
 API_PATH_PREFIX = settings.GALAXY_API_PATH_PREFIX.strip("/")
 
 galaxy_urls = [

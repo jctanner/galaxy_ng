@@ -10,8 +10,19 @@ User = get_user_model()
 
 class UserResourcesView(models.Model):
 
-    user = models.ForeignKey(User, to_field='id', db_column='user_id', on_delete=models.DO_NOTHING, primary_key=True)
-    resource = models.ForeignKey(Resource, to_field='id', db_column='resource_id', on_delete=models.DO_NOTHING)
+    user = models.ForeignKey(
+        User,
+        to_field='id',
+        db_column='user_id',
+        on_delete=models.DO_NOTHING,
+        primary_key=True
+    )
+    resource = models.ForeignKey(
+        Resource,
+        to_field='id',
+        db_column='resource_id',
+        on_delete=models.DO_NOTHING
+    )
 
     class Meta:
         managed = False
@@ -20,8 +31,19 @@ class UserResourcesView(models.Model):
 
 class OrganizationResourcesView(models.Model):
 
-    organization = models.ForeignKey(Organization, to_field='id', db_column='org_id', on_delete=models.DO_NOTHING, primary_key=True)
-    resource = models.ForeignKey(Resource, to_field='id', db_column='resource_id', on_delete=models.DO_NOTHING)
+    organization = models.ForeignKey(
+        Organization,
+        to_field='id',
+        db_column='org_id',
+        on_delete=models.DO_NOTHING,
+        primary_key=True
+    )
+    resource = models.ForeignKey(
+        Resource,
+        to_field='id',
+        db_column='resource_id',
+        on_delete=models.DO_NOTHING
+    )
 
     class Meta:
         managed = False
@@ -30,10 +52,31 @@ class OrganizationResourcesView(models.Model):
 
 class TeamResourcesView(models.Model):
 
-    team = models.ForeignKey(Team, to_field='id', db_column='team_id', on_delete=models.DO_NOTHING, primary_key=True)
-    group = models.ForeignKey(Group, to_field='id', db_column='group_id', on_delete=models.DO_NOTHING)
-    organization = models.ForeignKey(Organization, to_field='id', db_column='organization_id', on_delete=models.DO_NOTHING)
-    resource = models.ForeignKey(Resource, to_field='id', db_column='resource_id', on_delete=models.DO_NOTHING)
+    team = models.ForeignKey(
+        Team,
+        to_field='id',
+        db_column='team_id',
+        on_delete=models.DO_NOTHING,
+        primary_key=True
+    )
+    group = models.ForeignKey(
+        Group,
+        to_field='id',
+        db_column='group_id',
+        on_delete=models.DO_NOTHING
+    )
+    organization = models.ForeignKey(
+        Organization,
+        to_field='id',
+        db_column='organization_id',
+        on_delete=models.DO_NOTHING
+    )
+    resource = models.ForeignKey(
+        Resource,
+        to_field='id',
+        db_column='resource_id',
+        on_delete=models.DO_NOTHING
+    )
 
     class Meta:
         managed = False

@@ -1,6 +1,5 @@
 import json
 import os
-import uuid
 
 import pytest
 
@@ -22,7 +21,7 @@ def test_dab_rbac_namespace_owner_by_user(galaxy_client, random_namespace, rando
     gc = galaxy_client("admin", ignore_cache=True)
 
     # create the user in the proxy ...
-    uinfo = gc.post(
+    gc.post(
         "/api/gateway/v1/users/",
         body=json.dumps({"username": random_username, "password": "redhat1234"})
     )

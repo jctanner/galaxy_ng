@@ -1,9 +1,6 @@
-from django.conf import settings
 from django.urls import include, path
-from rest_framework import routers
 from rest_framework.routers import DefaultRouter
 
-from galaxy_ng.app import constants
 from .views import UserViewSet
 from .views import OrganizationViewSet
 from .views import TeamViewSet
