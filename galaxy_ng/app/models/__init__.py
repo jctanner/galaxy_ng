@@ -14,19 +14,10 @@ from .organization import Organization, Team
 from .synclist import SyncList
 
 from pulp_ansible.app.models import (
-    AnsibleCollectionDeprecated,
-    AnsibleDistribution,
-    AnsibleNamespace,
-    AnsibleNamespaceMetadata,
     AnsibleRepository,
     Collection,
     CollectionRemote,
-    CollectionVersion,
-    CollectionVersionSignature,
-    Tag,
 )
-
-from pulp_container.app.models import ContainerDistribution, ContainerNamespace
 
 from ansible_base.rbac import permission_registry
 
@@ -57,21 +48,11 @@ __all__ = (
 )
 
 permission_registry.register(
-    AnsibleCollectionDeprecated,
-    AnsibleDistribution,
-    AnsibleNamespace,
-    AnsibleNamespaceMetadata,
     AnsibleRepository,
     Collection,
     CollectionRemote,
-    CollectionVersion,
-    CollectionVersionSignature,
-    ContainerDistroReadme,
     ContainerRegistryRemote,
-    ContainerRegistryRepos,
     Namespace,
-    NamespaceLink,
-    Tag,
     Team,
     parent_field_name=None
 )
