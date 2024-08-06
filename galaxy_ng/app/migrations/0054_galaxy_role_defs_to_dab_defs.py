@@ -65,6 +65,19 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.AlterModelOptions(
+            name="team",
+            options={
+                "ordering": ("organization__name", "name"),
+                "permissions": [("member_team", "Has all permissions granted to this team")],
+            },
+        ),
+        migrations.AlterModelOptions(
+            name="organization",
+            options={
+                "permissions": [("member_organization", "User is a member of this organization")]
+            },
+        ),
         migrations.RunPython(
             create_permissions_as_operation,
             reverse_create_permissions_as_operation

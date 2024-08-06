@@ -32,6 +32,9 @@ class Organization(LifecycleModelMixin, AbstractOrganization):
 
     objects = OrganizationManager()
 
+    class Meta(AbstractOrganization.Meta):
+        permissions = [('member_organization', 'User is a member of this organization')]
+
     @hook(AFTER_UPDATE)
     def _after_update(self):
         if self.has_changed("name"):
@@ -55,6 +58,10 @@ class Team(LifecycleModelMixin, AbstractTeam):
     )
 
     resource = AnsibleResourceField(primary_key_field="id")
+
+    # Team member permission is used by DAB RBAC
+    class Meta(AbstractTeam.Meta):
+        permissions = [('member_team', 'Has all permissions granted to this team')]
 
     def group_name(self):
         if self.organization.name == settings.DEFAULT_ORGANIZATION_NAME:
