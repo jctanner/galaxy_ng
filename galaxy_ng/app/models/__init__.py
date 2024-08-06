@@ -26,6 +26,8 @@ from pulp_ansible.app.models import (
     Tag,
 )
 
+from pulp_container.app.models import ContainerDistribution, ContainerNamespace
+
 from ansible_base.rbac import permission_registry
 
 __all__ = (
@@ -64,9 +66,7 @@ permission_registry.register(
     CollectionRemote,
     CollectionVersion,
     CollectionVersionSignature,
-    ContainerDistribution,
     ContainerDistroReadme,
-    ContainerNamespace,
     ContainerRegistryRemote,
     ContainerRegistryRepos,
     Namespace,
