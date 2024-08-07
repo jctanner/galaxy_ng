@@ -11,6 +11,8 @@ from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.db.models.signals import post_delete
 from django.db.models.signals import m2m_changed
+from django.db.models import CharField, Value
+from django.db.models.functions import Concat
 from pulp_ansible.app.models import (
     AnsibleDistribution,
     AnsibleRepository,
@@ -134,26 +136,29 @@ def copy_permissions_role_to_role(roleA, roleB):
 
     A call to this method establishes that roleA should become the source-of-truth
     """
-    codenamesA = set(roleA.permissions.values_list("codename", flat=True))
-    codenamesB = set(roleB.permissions.values_list("codename", flat=True))
-    codenames_to_add = codenamesA - codenamesB
-    codenames_to_remove = codenamesB - codenamesA
+    permissionsA = list(roleA.permissions.prefetch_related('content_type'))
+    permissionsB = list(roleB.permissions.prefetch_related('content_type'))
+    fullnamesA = set(f'{perm.content_type.app_label}.{perm.codename}' for perm in permissionsA)
+    fullnamesB = set(f'{perm.content_type.app_label}.{perm.codename}' for perm in permissionsB)
+    fullnames_to_add = fullnamesA - fullnamesB
+    fullnames_to_remove = fullnamesB - fullnamesA
+    concat_exp = Concat('content_type__app_label', Value('.'), 'codename', output_field=CharField())
 
     # The m2m manager needs ids or objects so we need to work with the destination permission model
     # Optimization node: this should never simultaneously have both additions AND removals,
     # so there is no point in optimizing for that case
     permission_modelB = roleB._meta.get_field("permissions").related_model
-    if codenames_to_add:
+    if fullnames_to_add:
         ids_to_add = list(
-            permission_modelB.objects.filter(codename__in=codenames_to_add).values_list(
+            permission_modelB.objects.annotate(fullname=concat_exp).filter(fullname__in=fullnames_to_add).values_list(
                 "id", flat=True
             )
         )
         roleB.permissions.add(*ids_to_add)
 
-    if codenames_to_remove:
+    if fullnames_to_remove:
         ids_to_remove = list(
-            permission_modelB.objects.filter(codename__in=codenames_to_remove).values_list(
+            permission_modelB.objects.annotate(fullname=concat_exp).filter(codename__in=fullnames_to_remove).values_list(
                 "id", flat=True
             )
         )
