@@ -10,6 +10,7 @@ from galaxy_ng.app.models.organization import Team
 
 class UserSerializer(UserSerializerV1):
     resource = serializers.SerializerMethodField()
+    teams = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -20,6 +21,7 @@ class UserSerializer(UserSerializerV1):
             'last_name',
             'email',
             'groups',
+            'teams',
             'date_joined',
             'is_superuser',
             'auth_provider',
@@ -28,6 +30,11 @@ class UserSerializer(UserSerializerV1):
 
     def get_resource(self, obj):
         return obj.resource.summary_fields()
+
+    def get_teams(self, obj):
+        teams = Team.objects.filter(users=obj)
+        teams_serializer = TeamSerializer(teams, many=True)
+        return teams_serializer.data
 
 
 class GroupSerializer(serializers.ModelSerializer):
