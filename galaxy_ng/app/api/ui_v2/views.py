@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.exceptions import MethodNotAllowed
+from rest_framework.decorators import action
 
 from ansible_base.rest_pagination.default_paginator import DefaultPaginator
 
@@ -36,6 +37,43 @@ class UserViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = UserViewFilter
     pagination_class = DefaultPaginator
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def perform_create(self, serializer):
+        password = serializer.validated_data.get('password')
+        if password:
+            user = User(
+                email=serializer.validated_data['email'],
+                username=serializer.validated_data['username']
+            )
+            user.set_password(password)
+            user.save()
+            serializer.instance = user
+        else:
+            serializer.save()
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        if getattr(instance, '_prefetched_objects_cache', None):
+            instance._prefetched_objects_cache = {}
+        return Response(serializer.data)
+
+    def perform_update(self, serializer):
+        password = serializer.validated_data.get('password')
+        if password:
+            serializer.instance.set_password(password)
+            serializer.instance.save()
+        serializer.save()
 
 
 class GroupViewSet(viewsets.ModelViewSet):
@@ -107,3 +145,38 @@ class TeamViewSet(viewsets.ModelViewSet):
 
         serializer = self.serializer_class(team)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='users/associate')
+    def associate_users(self, request, pk=None):
+        team = self.get_object()
+        user_ids = request.data.get('instances', [])
+
+        if not user_ids:
+            return Response({"detail": "No user IDs provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        users = User.objects.filter(id__in=user_ids)
+
+        for user in users:
+            team.users.add(user)
+            team.group.user_set.add(user)
+
+        return Response({"detail": "Users associated successfully."}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='users/disassociate')
+    def disassociate_users(self, request, pk=None):
+        team = self.get_object()
+        user_ids = request.data.get('instances', [])
+
+        # Ensure the user_ids list is not empty
+        if not user_ids:
+            return Response({"detail": "No user IDs provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Fetch the users to be disassociated
+        users = User.objects.filter(id__in=user_ids)
+
+        # Disassociate users from the team
+        for user in users:
+            team.users.remove(user)
+            team.group.user_set.remove(user)
+
+        return Response({"detail": "Users disassociated successfully."}, status=status.HTTP_200_OK)

@@ -17,6 +17,7 @@ class UserSerializer(UserSerializerV1):
         fields = [
             'id',
             'username',
+            'password',
             'first_name',
             'last_name',
             'email',
@@ -28,6 +29,11 @@ class UserSerializer(UserSerializerV1):
             'resource',
         ]
 
+        extra_kwargs = {
+            'password': {'write_only': True, 'required': True},
+            'email': {'required': True}
+        }
+
     def get_resource(self, obj):
         return obj.resource.summary_fields()
 
@@ -35,6 +41,26 @@ class UserSerializer(UserSerializerV1):
         teams = Team.objects.filter(users=obj)
         teams_serializer = TeamSerializer(teams, many=True)
         return teams_serializer.data
+
+    def validate_email(self, value):
+        if not value:
+            raise serializers.ValidationError("Email is required")
+        return value
+
+    def create(self, validated_data):
+        user = User(
+            email=validated_data['email'],
+            username=validated_data['username']
+        )
+        user.set_password(validated_data['password'])
+        user.save()
+        return user
+
+    def update(self, instance, validated_data):
+        if 'password' in validated_data:
+            instance.set_password(validated_data['password'])
+            validated_data.pop('password')
+        return super().update(instance, validated_data)
 
 
 class GroupSerializer(serializers.ModelSerializer):
