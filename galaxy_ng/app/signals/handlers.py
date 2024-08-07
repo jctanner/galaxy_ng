@@ -136,13 +136,13 @@ def copy_permissions_role_to_role(roleA, roleB):
 
     A call to this method establishes that roleA should become the source-of-truth
     """
-    permissionsA = list(roleA.permissions.prefetch_related('content_type'))
-    permissionsB = list(roleB.permissions.prefetch_related('content_type'))
-    fullnamesA = set(f'{perm.content_type.app_label}.{perm.codename}' for perm in permissionsA)
-    fullnamesB = set(f'{perm.content_type.app_label}.{perm.codename}' for perm in permissionsB)
+    permissionsA = list(roleA.permissions.prefetch_related("content_type"))
+    permissionsB = list(roleB.permissions.prefetch_related("content_type"))
+    fullnamesA = set(f"{perm.content_type.app_label}.{perm.codename}" for perm in permissionsA)
+    fullnamesB = set(f"{perm.content_type.app_label}.{perm.codename}" for perm in permissionsB)
     fullnames_to_add = fullnamesA - fullnamesB
     fullnames_to_remove = fullnamesB - fullnamesA
-    concat_exp = Concat('content_type__app_label', Value('.'), 'codename', output_field=CharField())
+    concat_exp = Concat("content_type__app_label", Value("."), "codename", output_field=CharField())
 
     # The m2m manager needs ids or objects so we need to work with the destination permission model
     # Optimization node: this should never simultaneously have both additions AND removals,
@@ -150,17 +150,17 @@ def copy_permissions_role_to_role(roleA, roleB):
     permission_modelB = roleB._meta.get_field("permissions").related_model
     if fullnames_to_add:
         ids_to_add = list(
-            permission_modelB.objects.annotate(fullname=concat_exp).filter(fullname__in=fullnames_to_add).values_list(
-                "id", flat=True
-            )
+            permission_modelB.objects.annotate(fullname=concat_exp)
+            .filter(fullname__in=fullnames_to_add)
+            .values_list("id", flat=True)
         )
         roleB.permissions.add(*ids_to_add)
 
     if fullnames_to_remove:
         ids_to_remove = list(
-            permission_modelB.objects.annotate(fullname=concat_exp).filter(codename__in=fullnames_to_remove).values_list(
-                "id", flat=True
-            )
+            permission_modelB.objects.annotate(fullname=concat_exp)
+            .filter(codename__in=fullnames_to_remove)
+            .values_list("id", flat=True)
         )
         roleB.permissions.remove(*ids_to_remove)
 
@@ -295,7 +295,7 @@ def copy_pulp_group_role(sender, instance, created, **kwargs):
         return
     with pulp_rbac_signals():
         rd = RoleDefinition.objects.filter(name=instance.role.name).first()
-        if rd and hasattr(instance.group, 'team'):
+        if rd and hasattr(instance.group, "team"):
             if instance.content_object:
                 rd.give_permission(instance.group.team, instance.content_object)
             else:
@@ -308,7 +308,7 @@ def delete_pulp_group_role(sender, instance, **kwargs):
         return
     with pulp_rbac_signals():
         rd = RoleDefinition.objects.filter(name=instance.role.name).first()
-        if rd and hasattr(instance.group, 'team'):
+        if rd and hasattr(instance.group, "team"):
             if instance.content_object:
                 rd.remove_permission(instance.group.team, instance.content_object)
             else:
