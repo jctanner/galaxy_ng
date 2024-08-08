@@ -115,9 +115,10 @@ def test_dab_rbac_namespace_owner_by_team(
 ):
     """Tests the galaxy.system_auditor role can be added to a user and has the right perms."""
 
-    if settings.get('ALLOW_LOCAL_RESOURCE_MANAGEMENT') is False:
-        pytest.skip("jwtproxy doesn't support team creation yet")
+    #if settings.get('ALLOW_LOCAL_RESOURCE_MANAGEMENT') is False:
+    #    pytest.skip("jwtproxy doesn't support team creation yet")
 
+    org_name = random_username.replace('user_', 'org_')
     team_name = random_username.replace('user_', 'team_')
 
     gc = galaxy_client("admin", ignore_cache=True)
@@ -151,15 +152,31 @@ def test_dab_rbac_namespace_owner_by_team(
     # make the team ...
     if settings.get('ALLOW_LOCAL_RESOURCE_MANAGEMENT') is False:
 
-        '''
-        # create the user in the proxy ...
-        td = gc.post(
-            "/api/gateway/v1/teams/",
-            body=json.dumps({"name": team_name})
+        # create an org (Default doesn't sync)
+        org_data = gc.post(
+            "/api/gateway/v1/organizations/",
+            body=json.dumps({"name": org_name})
         )
-        import epdb; epdb.st()
-        '''
+        org_id = org_data['id']
 
+        # create a team
+        team_data = gc.post(
+            "/api/gateway/v1/teams/",
+            body=json.dumps({"name": team_name, "organization": org_id})
+        )
+        team_id = team_data['id']
+
+        # add user to the team
+        #   Unforunately the API contract for this endpoint is to return
+        #   HTTP/1.1 204 No Content ... which means galaxyclient blows up
+        #   on a non-json response.
+        try:
+            gc.post(
+                f"/api/gateway/v1/teams/{team_id}/users/associate/",
+                body=json.dumps({"instances": [user_id]})
+            )
+        except Exception as e:
+            pass
     else:
         team_data = gc.post(
             "_ui/v2/teams/",
