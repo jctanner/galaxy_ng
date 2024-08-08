@@ -210,11 +210,20 @@ def assert_assignments(gc, user, namespace, expected=0):
 
 @pytest.mark.parametrize("by_role_api", ["dab", "pulp"])
 @pytest.mark.parametrize("by_assignment_api", ["dab", "pulp"])
-def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, by_role_api, by_assignment_api):
+def test_give_custom_role_object(
+    galaxy_client,
+    custom_role_creator,
+    namespace,
+    by_role_api,
+    by_assignment_api
+):
     gc = galaxy_client("admin")
 
     if by_role_api == 'pulp' and by_assignment_api == 'dab':
-        pytest.skip('This is not supported, the compatbility shim is only for the pulp assignment API')
+        pytest.skip(
+            'This is not supported, the compatbility shim'
+            + ' is only for the pulp assignment API'
+        )
 
     if by_role_api == "dab":
         data = NS_FIXTURE_DATA.copy()
