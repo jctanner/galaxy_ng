@@ -14,6 +14,8 @@ from django.db.models.signals import m2m_changed
 from django.db.models import CharField, Value
 from django.db.models.functions import Concat
 from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
+from rest_framework.exceptions import ValidationError
 from pulp_ansible.app.models import (
     AnsibleDistribution,
     AnsibleRepository,
@@ -23,6 +25,7 @@ from pulp_ansible.app.models import (
 from galaxy_ng.app.models import Namespace
 from pulpcore.plugin.models import ContentRedirectContentGuard
 
+from ansible_base.rbac.validators import validate_permissions_for_model
 from ansible_base.rbac.models import RoleTeamAssignment
 from ansible_base.rbac.models import RoleUserAssignment
 from ansible_base.rbac.models import RoleDefinition
@@ -269,10 +272,16 @@ def lazy_content_type_correction(rd, obj):
     So this will apply the content_type of the first object given an object-assignment
     only under certain non-conflicting conditions"""
     if obj and (rd.content_type is None):
-        # TODO: add to conditional - role is not platform role
-        # TODO: add to conditional - rd only has valid permission types
+        if rd.name in settings.ANSIBLE_BASE_JWT_MANAGED_ROLES:
+            return
         if not rd.user_assignments.exists():
-            rd.content_type = ContentType.objects.get_for_model(obj)
+            ct = ContentType.objects.get_for_model(obj)
+            try:
+                # If permissions will not pass the validator, then we do not want to do this
+                validate_permissions_for_model(list(rd.permissions.all()), ct)
+            except ValidationError:
+                return
+            rd.content_type = ct
             rd.save(update_fields=['content_type'])
 
 

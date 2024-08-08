@@ -1,5 +1,8 @@
 import pytest
 
+from galaxykit.utils import GalaxyClientError
+
+
 # This tests the basic DAB RBAC contract using custom roles to do things
 
 
@@ -209,9 +212,7 @@ def assert_assignments(gc, user, namespace, expected=0):
 
 @pytest.mark.parametrize("by_role_api", ["dab", "pulp"])
 @pytest.mark.parametrize("by_assignment_api", ["dab", "pulp"])
-def test_give_custom_role_object(
-    request, galaxy_client, custom_role_creator, namespace, by_role_api, by_assignment_api, random_username
-):
+def test_give_custom_role_object(galaxy_client, custom_role_creator, namespace, by_role_api, by_assignment_api):
     gc = galaxy_client("admin")
 
     if by_role_api == 'pulp' and by_assignment_api == 'dab':
@@ -275,3 +276,30 @@ def test_give_custom_role_object(
         gc.put(f"_ui/v1/my-namespaces/{namespace['name']}/", body=payload)
 
     assert_assignments(gc, user, namespace, 0)
+
+
+def test_object_role_permission_validation(galaxy_client, custom_role_creator, namespace):
+    gc = galaxy_client("admin")
+
+    data = NS_FIXTURE_DATA.copy()
+    data["name"] = "galaxy.namespace_custom_pulp_object_role"
+    # Add a permission not valid for namespaces
+    data["permissions"] += ["core.view_task"]
+    custom_obj_role_pulp = custom_role_creator(data, url_base=PULP_ROLE_URL)
+
+    user_r = gc.get("_ui/v2/users/")
+    assert user_r["count"] > 0
+    user = user_r["results"][0]
+
+    payload = {
+        "name": namespace["name"],
+        "users": [
+            {
+                "id": user["id"],
+                "object_roles": [custom_obj_role_pulp["name"]],
+            }
+        ],
+    }
+    with pytest.raises(GalaxyClientError) as exc:
+        gc.put(f"_ui/v1/my-namespaces/{namespace['name']}/", body=payload)
+    assert 'Role type global does not match object namespace' in str(exc)
