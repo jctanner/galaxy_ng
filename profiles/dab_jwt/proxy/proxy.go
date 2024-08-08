@@ -125,11 +125,14 @@ type UserData struct {
 }
 
 type Organization struct {
+	Id        int    `json:"id"`
 	AnsibleId string `json:"ansible_id"`
 	Name      string `json:"name"`
+	CodeName  string `json:"name"`
 }
 
 type Team struct {
+	Id        int    `json:"id"`
 	AnsibleId string `json:"ansible_id"`
 	Name      string `json:"name"`
 	Org       string `json:"org"`
@@ -155,6 +158,27 @@ type LoginRequest struct {
 // LoginResponse represents the login response payload
 type LoginResponse struct {
 	CSRFToken string `json:"csrfToken"`
+}
+
+type OrgResponse struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	SummaryFields struct {
+		Resource struct {
+			AnsibleID string `json:"ansible_id"`
+		} `json:"resource"`
+	} `json:"summary_fields"`
+}
+
+type TeamResponse struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	Organization  int    `json:"organization"`
+	SummaryFields struct {
+		Resource struct {
+			AnsibleID string `json:"ansible_id"`
+		} `json:"resource"`
+	} `json:"summary_fields"`
 }
 
 type UserResponse struct {
@@ -200,37 +224,48 @@ var orgmap = map[string]int{
 	"org2":    2,
 }
 
-var orgs = map[string]Organization{
+var prepopulatedOrgs = map[string]Organization{
 	"default": {
+        Id:        1,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee0",
 		Name:      "Default",
+        CodeName:   "Default",
 	},
 	"org1": {
+        Id:        2,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee1",
 		Name:      "Organization 1",
+        CodeName:  "org1",
 	},
 	"org2": {
+        Id:        3,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee2",
 		Name:      "Organization 2",
+        CodeName:  "org2",
 	},
 	"pe": {
+        Id:        4,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee3",
 		Name:      "system:partner-engineers",
+        CodeName:  "pe",
 	},
 }
 
-var teams = map[string]Team{
+var prepopulatedTeams = map[string]Team{
 	"ateam": {
+        Id:        1,
 		AnsibleId: "34a58292-1e0f-49f0-9383-fb7e63d771aa",
 		Name:      "ateam",
 		Org:       "org1",
 	},
 	"bteam": {
+        Id:        2,
 		AnsibleId: "34a58292-1e0f-49f0-9383-fb7e63d771ab",
 		Name:      "bteam",
 		Org:       "default",
 	},
 	"peteam": {
+        Id:        3,
 		AnsibleId: "34a58292-1e0f-49f0-9383-fb7e63d771ac",
 		Name:      "peteam",
 		Org:       "pe",
@@ -324,10 +359,23 @@ var (
 	idCounter  = 6
 )
 
+var (
+	teams      = map[string]Team{}
+	teamsMutex = &sync.Mutex{}
+	teamIdCounter  = 4
+)
+
+var (
+	orgs      = map[string]Organization{}
+	orgsMutex = &sync.Mutex{}
+	orgIdCounter  = 4
+)
+
 /************************************************************
 	FUNCTIONS
 ************************************************************/
 
+/*
 func init() {
 	// Generate RSA keys
 	var err error
@@ -337,6 +385,7 @@ func init() {
 	}
 	rsaPublicKey = &rsaPrivateKey.PublicKey
 }
+*/
 
 // PrintHeaders prints all headers from the request
 func PrintHeaders(r *http.Request) {
@@ -826,6 +875,28 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
+func OrganizationHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		getOrgs(w, r)
+	case http.MethodPost:
+		//addUser(w, r)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func TeamHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		getTeams(w, r)
+	case http.MethodPost:
+		//addUser(w, r)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
 func UserHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -836,6 +907,93 @@ func UserHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
 }
+
+func getOrgs(w http.ResponseWriter, r *http.Request) {
+	orgsMutex.Lock()
+	defer orgsMutex.Unlock()
+
+	var orgList []Organization
+	for _, org := range orgs {
+		orgList = append(orgList, org)
+	}
+	sort.Slice(orgList, func(i, j int) bool {
+		return orgList[i].Id < orgList[j].Id
+	})
+
+	var responseOrgs []OrgResponse
+
+	for _, orgdata := range orgList {
+		responseOrg := OrgResponse{
+			ID:       orgdata.Id,
+			Name:     orgdata.Name,
+			SummaryFields: struct {
+				Resource struct {
+					AnsibleID string `json:"ansible_id"`
+				} `json:"resource"`
+			}{Resource: struct {
+				AnsibleID string `json:"ansible_id"`
+			}{AnsibleID: orgdata.AnsibleId}},
+		}
+		responseOrgs = append(responseOrgs, responseOrg)
+	}
+
+	response := map[string][]OrgResponse{
+		"results": responseOrgs,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func getTeams(w http.ResponseWriter, r *http.Request) {
+	teamsMutex.Lock()
+	defer teamsMutex.Unlock()
+
+	orgsMutex.Lock()
+	defer orgsMutex.Unlock()
+
+	var teamList []Team
+	for _, team := range teams {
+		teamList = append(teamList, team)
+	}
+	sort.Slice(teamList, func(i, j int) bool {
+		return teamList[i].Id < teamList[j].Id
+	})
+
+	var responseTeams []TeamResponse
+
+	for _, teamdata := range teamList {
+
+        var orgId = 0;
+        for _, org := range orgs {
+            if (org.CodeName == teamdata.Org) {
+                orgId = org.Id
+            }
+        }
+
+		responseTeam := TeamResponse{
+			ID:       teamdata.Id,
+			Name:     teamdata.Name,
+            Organization: orgId,
+			SummaryFields: struct {
+				Resource struct {
+					AnsibleID string `json:"ansible_id"`
+				} `json:"resource"`
+			}{Resource: struct {
+				AnsibleID string `json:"ansible_id"`
+			}{AnsibleID: teamdata.AnsibleId}},
+		}
+		responseTeams = append(responseTeams, responseTeam)
+	}
+
+	response := map[string][]TeamResponse{
+		"results": responseTeams,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	usersMutex.Lock()
@@ -851,7 +1009,6 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 	var responseUsers []UserResponse
 
-	//for _, userdata := range users {
 	for _, userdata := range userList {
 		responseUser := UserResponse{
 			ID:       userdata.Id,
@@ -963,9 +1120,35 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
+	// Generate RSA keys
+	log.Printf("# Making RSA keys\n")
+	var err error
+	rsaPrivateKey, err = rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(err)
+	}
+	rsaPublicKey = &rsaPrivateKey.PublicKey
+
+    // build orgs ...
+	log.Printf("# Making Orgs\n")
+    orgsMutex.Lock()
+    defer orgsMutex.Unlock()
+    for _, org := range prepopulatedOrgs {
+        orgs[org.Name] = org
+    }
+
+    // build teams ...
+	log.Printf("# Making Teams\n")
+    teamsMutex.Lock()
+    defer teamsMutex.Unlock()
+    for _, team := range prepopulatedTeams {
+        teams[team.Name] = team
+    }
+
+    // build users ...
+	log.Printf("# Making Users\n")
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
-
 	for _, user := range prepopulatedUsers {
 		users[user.Username] = user
 	}
@@ -1035,6 +1218,8 @@ func main() {
 	http.HandleFunc("/api/gateway/v1/login/", LoginHandler)
 	http.HandleFunc("/api/gateway/v1/logout/", LogoutHandler)
 	http.HandleFunc("/api/gateway/v1/users/", UserHandler)
+	http.HandleFunc("/api/gateway/v1/teams/", TeamHandler)
+	http.HandleFunc("/api/gateway/v1/organizations/", OrganizationHandler)
 
 	// send everything else downstream
 	http.Handle("/", BasicAuth(proxy))
