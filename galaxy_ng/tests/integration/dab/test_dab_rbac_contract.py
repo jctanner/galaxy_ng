@@ -88,13 +88,6 @@ PULP_ROLE_URL = "pulp/api/v3/roles/"
 def custom_role_creator(request, galaxy_client):
     def _rf(data, url_base=DAB_ROLE_URL):
         gc = galaxy_client("admin")
-        list_r = gc.get(f"{url_base}?name={data['name']}")
-        if list_r["count"] == 1:
-            r = list_r["results"][0]
-        elif list_r["count"] > 1:
-            raise RuntimeError(f"Found too many {url_base} with expected name {data['name']}")
-        else:
-            r = gc.post(url_base, body=data)
 
         def delete_role():
             with pytest.raises(ValueError):
@@ -104,6 +97,16 @@ def custom_role_creator(request, galaxy_client):
                     gc.delete(r["pulp_href"])
                 else:
                     raise RuntimeError(f"Could not figure out how to delete {r}")
+
+        list_r = gc.get(f"{url_base}?name={data['name']}")
+        if list_r["count"] == 1:
+            r = list_r["results"][0]
+            delete_role()
+
+        if list_r["count"] > 1:
+            raise RuntimeError(f"Found too many {url_base} with expected name {data['name']}")
+        else:
+            r = gc.post(url_base, body=data)
 
         request.addfinalizer(delete_role)
         return r
@@ -204,16 +207,28 @@ def assert_assignments(gc, user, namespace, expected=0):
             assert related[field].startswith(GALAXY_API_PATH_PREFIX)
 
 
-@pytest.mark.parametrize("by_api", ["dab", "pulp"])
+@pytest.mark.parametrize("by_role_api", ["dab", "pulp"])
+@pytest.mark.parametrize("by_assignment_api", ["dab", "pulp"])
 def test_give_custom_role_object(
-    request, galaxy_client, custom_role_creator, namespace, by_api, random_username
+    request, galaxy_client, custom_role_creator, namespace, by_role_api, by_assignment_api, random_username
 ):
-    data = NS_FIXTURE_DATA.copy()
-    data["name"] = "galaxy.namespace_custom_object_role"
-    data["content_type"] = "galaxy.namespace"
-    custom_obj_role = custom_role_creator(data)
-
     gc = galaxy_client("admin")
+
+    if by_role_api == 'pulp' and by_assignment_api == 'dab':
+        pytest.skip('This is not supported, the compatbility shim is only for the pulp assignment API')
+
+    if by_role_api == "dab":
+        data = NS_FIXTURE_DATA.copy()
+        data["name"] = "galaxy.namespace_custom_dab_object_role"
+        data["content_type"] = "galaxy.namespace"
+        custom_obj_role_dab = custom_role_creator(data)
+        custom_obj_role_pulp = gc.get(f"{PULP_ROLE_URL}?name={data['name']}")['results'][0]
+    else:
+        data = NS_FIXTURE_DATA.copy()
+        data["name"] = "galaxy.namespace_custom_pulp_object_role"
+        custom_obj_role_pulp = custom_role_creator(data, url_base=PULP_ROLE_URL)
+        custom_obj_role_dab = gc.get(f"{DAB_ROLE_URL}?name={data['name']}")['results'][0]
+
     user_r = gc.get("_ui/v2/users/")
     assert user_r["count"] > 0
     user = user_r["results"][0]
@@ -223,11 +238,11 @@ def test_give_custom_role_object(
 
     # Give the user permission to the namespace object
     dab_assignment = None
-    if by_api == "dab":
+    if by_assignment_api == "dab":
         dab_assignment = gc.post(
             "_ui/v2/role_user_assignments/",
             body={
-                "role_definition": custom_obj_role["id"],
+                "role_definition": custom_obj_role_dab["id"],
                 "user": user["id"],
                 "object_id": str(namespace["id"]),
             },
@@ -238,7 +253,7 @@ def test_give_custom_role_object(
             "users": [
                 {
                     "id": user["id"],
-                    "object_roles": [custom_obj_role["name"]],
+                    "object_roles": [custom_obj_role_pulp["name"]],
                 }
             ],
         }
@@ -249,7 +264,7 @@ def test_give_custom_role_object(
     assert_assignments(gc, user, namespace, 1)
 
     # Remove the permission from before
-    if by_api == "dab":
+    if by_assignment_api == "dab":
         with pytest.raises(ValueError):
             gc.delete(f"_ui/v2/role_user_assignments/{dab_assignment['id']}/")
     else:

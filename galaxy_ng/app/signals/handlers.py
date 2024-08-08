@@ -13,6 +13,7 @@ from django.db.models.signals import post_delete
 from django.db.models.signals import m2m_changed
 from django.db.models import CharField, Value
 from django.db.models.functions import Concat
+from django.contrib.contenttypes.models import ContentType
 from pulp_ansible.app.models import (
     AnsibleDistribution,
     AnsibleRepository,
@@ -262,6 +263,19 @@ m2m_changed.connect(copy_permission_rd_to_role, sender=RoleDefinition.permission
 # Pulp UserRole and TeamRole to DAB RBAC assignments
 
 
+def lazy_content_type_correction(rd, obj):
+    """Implements special behavior because pulp roles have no content type
+
+    So this will apply the content_type of the first object given an object-assignment
+    only under certain non-conflicting conditions"""
+    if obj and (rd.content_type is None):
+        # TODO: add to conditional - role is not platform role
+        # TODO: add to conditional - rd only has valid permission types
+        if not rd.user_assignments.exists():
+            rd.content_type = ContentType.objects.get_for_model(obj)
+            rd.save(update_fields=['content_type'])
+
+
 @receiver(post_save, sender=UserRole)
 def copy_pulp_user_role(sender, instance, created, **kwargs):
     """When a pulp role is granted to a user, grant the equivalent dab role."""
@@ -271,6 +285,7 @@ def copy_pulp_user_role(sender, instance, created, **kwargs):
         rd = RoleDefinition.objects.filter(name=instance.role.name).first()
         if rd:
             if instance.content_object:
+                lazy_content_type_correction(rd, instance.content_object)
                 rd.give_permission(instance.user, instance.content_object)
             else:
                 rd.give_global_permission(instance.user)
