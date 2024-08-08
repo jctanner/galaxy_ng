@@ -24,11 +24,14 @@
 package main
 
 import (
+    "bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+    "io"
+    "io/ioutil"
 	"fmt"
 	"log"
 	"net/http"
@@ -191,6 +194,11 @@ type UserResponse struct {
 	} `json:"summary_fields"`
 }
 
+type TeamRequest struct {
+	Name          string `json:"name"`
+	Organization  int    `json:"organization"`
+}
+
 /************************************************************
 	GLOBALS & SETTINGS
 ************************************************************/
@@ -218,18 +226,20 @@ var (
 
 var ANSIBLE_BASE_SHARED_SECRET = "redhat1234"
 
+/*
 var orgmap = map[string]int{
 	"default": 0,
 	"org1":    1,
 	"org2":    2,
 }
+*/
 
 var prepopulatedOrgs = map[string]Organization{
 	"default": {
         Id:        1,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee0",
 		Name:      "Default",
-        CodeName:   "Default",
+        CodeName:   "default",
 	},
 	"org1": {
         Id:        2,
@@ -891,7 +901,7 @@ func TeamHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		getTeams(w, r)
 	case http.MethodPost:
-		//addUser(w, r)
+		addTeam(w, r)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
@@ -968,6 +978,7 @@ func getTeams(w http.ResponseWriter, r *http.Request) {
         for _, org := range orgs {
             if (org.CodeName == teamdata.Org) {
                 orgId = org.Id
+                break
             }
         }
 
@@ -1030,6 +1041,87 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func addTeam(w http.ResponseWriter, r *http.Request) {
+
+    // fmt.Println("body", r.Body)
+    body, err := ioutil.ReadAll(r.Body)
+    if err != nil {
+        http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+        return
+    }
+    fmt.Println("Request Body:", string(body))
+    r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	var newTeamRequest TeamRequest
+	if err := json.NewDecoder(r.Body).Decode(&newTeamRequest); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+    if (newTeamRequest.Name == "") {
+		http.Error(w, "Team name can not be blank", http.StatusConflict)
+		return
+    }
+
+	orgsMutex.Lock()
+	defer orgsMutex.Unlock()
+
+	teamsMutex.Lock()
+	defer teamsMutex.Unlock()
+
+	if _, exists := teams[newTeamRequest.Name]; exists {
+		http.Error(w, "Team already exists", http.StatusConflict)
+		return
+	}
+
+    orgName := ""
+    for _, org := range orgs {
+        if (org.Id == newTeamRequest.Organization) {
+            orgName = org.CodeName
+            break
+        }
+    }
+    if (orgName == "") {
+		http.Error(w, "Org not found", http.StatusConflict)
+		return
+    }
+
+	highestId := 0
+	for _, team := range teams {
+		if team.Id > highestId {
+			highestId = team.Id
+		}
+	}
+
+    var newTeam Team
+
+    newTeam.Name = newTeamRequest.Name
+	newTeam.Id = highestId + 1
+	newAnsibleID := uuid.NewString()
+	newTeam.AnsibleId = newAnsibleID
+    newTeam.Org = orgName
+	teams[newTeam.Name] = newTeam
+
+	responseTeam := TeamResponse{
+		ID:           newTeam.Id,
+		Name:         newTeam.Name,
+        Organization: newTeamRequest.Organization,
+		SummaryFields: struct {
+			Resource struct {
+				AnsibleID string `json:"ansible_id"`
+			} `json:"resource"`
+		}{Resource: struct {
+			AnsibleID string `json:"ansible_id"`
+		}{AnsibleID: newAnsibleID}},
+	}
+
+	idCounter++
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(responseTeam)
 }
 
 func addUser(w http.ResponseWriter, r *http.Request) {
@@ -1118,6 +1210,7 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(responseUser)
 }
+
 
 func init() {
 	// Generate RSA keys
