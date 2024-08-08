@@ -6,9 +6,6 @@ from pulpcore.plugin.models import Group as PulpGroup
 from ansible_base.resource_registry.fields import AnsibleResourceField
 
 
-from ansible_base.resource_registry.fields import AnsibleResourceField
-
-
 log = logging.getLogger(__name__)
 
 __all__ = (
