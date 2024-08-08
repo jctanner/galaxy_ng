@@ -191,7 +191,7 @@ def assert_assignments(gc, user, namespace, expected=0):
 
     if expected > 0:
         # Ensure summary_fields is populated with expected sub keys
-        expected_fields = {"created_by", "role_definition", "user", "content_objet"}
+        expected_fields = {"created_by", "role_definition", "user", "content_object"}
 
         summary_fields = r["results"][0]["summary_fields"]
         related = r["results"][0]["related"]
