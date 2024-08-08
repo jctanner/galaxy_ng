@@ -196,7 +196,7 @@ type UserResponse struct {
 }
 
 type OrgRequest struct {
-	Name         string `json:"name"`
+	Name string `json:"name"`
 }
 
 type TeamRequest struct {
@@ -977,6 +977,8 @@ func AssociateTeamUsersHandler(w http.ResponseWriter, r *http.Request) {
 					fmt.Println("add", user.Username, "to", teamName)
 					user.Teams = append(user.Teams, teamName)
 					users[user.Username] = user
+				} else {
+					fmt.Println("do not need to add", teamName, "to", user)
 				}
 			}
 		}
@@ -1145,10 +1147,10 @@ func addOrg(w http.ResponseWriter, r *http.Request) {
 
 	highestId := 0
 	for _, org := range orgs {
-        if (org.Name == newOrgRequest.Name || org.CodeName == newOrgRequest.Name) {
-		    http.Error(w, "org name is already taken", http.StatusBadRequest)
-		    return
-        }
+		if org.Name == newOrgRequest.Name || org.CodeName == newOrgRequest.Name {
+			http.Error(w, "org name is already taken", http.StatusBadRequest)
+			return
+		}
 		if org.Id > highestId {
 			highestId = org.Id
 		}
@@ -1161,21 +1163,21 @@ func addOrg(w http.ResponseWriter, r *http.Request) {
 	newOrg.Id = highestId + 1
 	newAnsibleID := uuid.NewString()
 	newOrg.AnsibleId = newAnsibleID
-    orgs[newOrg.CodeName] = newOrg
+	orgs[newOrg.CodeName] = newOrg
 
-    fmt.Println(newOrg)
+	fmt.Println(newOrg)
 
-    responseOrg := OrgResponse{
-        ID:   newOrg.Id,
-        Name: newOrg.Name,
-        SummaryFields: struct {
-            Resource struct {
-                AnsibleID string `json:"ansible_id"`
-            } `json:"resource"`
-        }{Resource: struct {
-            AnsibleID string `json:"ansible_id"`
-        }{AnsibleID: newOrg.AnsibleId}},
-    }
+	responseOrg := OrgResponse{
+		ID:   newOrg.Id,
+		Name: newOrg.Name,
+		SummaryFields: struct {
+			Resource struct {
+				AnsibleID string `json:"ansible_id"`
+			} `json:"resource"`
+		}{Resource: struct {
+			AnsibleID string `json:"ansible_id"`
+		}{AnsibleID: newOrg.AnsibleId}},
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -1311,10 +1313,10 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    if (newUser.Username == "") {
+	if newUser.Username == "" {
 		http.Error(w, "username can not be blank.", http.StatusBadRequest)
 		return
-    }
+	}
 
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
