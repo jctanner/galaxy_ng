@@ -115,8 +115,8 @@ def test_dab_rbac_namespace_owner_by_team(
 ):
     """Tests the galaxy.system_auditor role can be added to a user and has the right perms."""
 
-    #if settings.get('ALLOW_LOCAL_RESOURCE_MANAGEMENT') is False:
-    #    pytest.skip("jwtproxy doesn't support team creation yet")
+    if settings.get('ALLOW_LOCAL_RESOURCE_MANAGEMENT') is False:
+        pytest.skip("galaxykit uses drf tokens, which bypass JWT auth and claims processing")
 
     org_name = random_username.replace('user_', 'org_')
     team_name = random_username.replace('user_', 'team_')
@@ -166,6 +166,17 @@ def test_dab_rbac_namespace_owner_by_team(
         )
         team_id = team_data['id']
 
+        # get the gateway's userid for this user ...
+        # FIXME - pagination or filtering support?
+        users_data = gc.get(
+            "/api/gateway/v1/users/",
+        )
+        gateway_uid = None
+        for user in users_data['results']:
+            if user['username'] == random_username:
+                gateway_uid = user['id']
+                break
+
         # add user to the team
         #   Unforunately the API contract for this endpoint is to return
         #   HTTP/1.1 204 No Content ... which means galaxyclient blows up
@@ -173,10 +184,21 @@ def test_dab_rbac_namespace_owner_by_team(
         try:
             gc.post(
                 f"/api/gateway/v1/teams/{team_id}/users/associate/",
-                body=json.dumps({"instances": [user_id]})
+                body=json.dumps({"instances": [gateway_uid]})
             )
-        except Exception as e:
+        except Exception:
             pass
+
+        '''
+        # FIXME - galaxykit only wants to use tokens, which bypasses
+        #        jwt & claims processing
+
+        # check memberships in galaxy ...
+        me_rr = ugc.get(f'_ui/v1/me/', use_token=False)
+        #user_rr = ugc.get(f'_ui/v2/users/?username={random_username}')
+        import epdb; epdb.st()
+        '''
+
     else:
         team_data = gc.post(
             "_ui/v2/teams/",

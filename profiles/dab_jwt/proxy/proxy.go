@@ -543,7 +543,20 @@ func generateHmacSha256SharedSecret(nonce *string) (string, error) {
 }
 
 // generateJWT generates a JWT for the user
-func generateJWT(user User) (string, error) {
+func generateJWT(argUser User) (string, error) {
+
+	orgsMutex.Lock()
+	defer orgsMutex.Unlock()
+
+	teamsMutex.Lock()
+	defer teamsMutex.Unlock()
+
+	usersMutex.Lock()
+	defer usersMutex.Unlock()
+
+	user := users[argUser.Username]
+
+	fmt.Println("#######################################################")
 
 	// make a list of org structs for this user ...
 	userOrgs := []Organization{}
@@ -556,6 +569,18 @@ func generateJWT(user User) (string, error) {
 		localOrgMap[orgName] = counter
 		userOrgs = append(userOrgs, orgs[orgName])
 	}
+
+	fmt.Println("# USER TEAMS ...", user.Teams)
+	for _, teamCodeName := range user.Teams {
+		team := teams[teamCodeName]
+		orgName := team.Org
+		fmt.Println("-----------------------------------------------------")
+		fmt.Println("# TEAM+ORG_NAME", team, orgName)
+		fmt.Println("-----------------------------------------------------")
+	}
+
+	//panic("FUCK")
+
 	for _, team := range user.Teams {
 		orgName := teams[team].Org
 		orgIndex := localOrgMap[orgName]
@@ -565,6 +590,8 @@ func generateJWT(user User) (string, error) {
 			Org:       orgIndex,
 		})
 	}
+
+	fmt.Println("userteams", userTeams)
 
 	objects := map[string]interface{}{
 		"organization": userOrgs,
@@ -599,10 +626,16 @@ func generateJWT(user User) (string, error) {
 		ObjectRoles: objectRoles,
 		Objects:     objects,
 	}
+
+	fmt.Println("#######################################################")
 	log.Printf("\tMake claim for %s\n", user)
+	fmt.Println("Make claim for", user.Username)
 	log.Printf("\tClaim %s\n", claims)
+	fmt.Println("\tClaim", claims)
 	jsonData, _ := json.Marshal(claims)
 	log.Printf("\t%s\n", jsonData)
+	fmt.Println(jsonData)
+	fmt.Println("#######################################################")
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	return token.SignedString(rsaPrivateKey)
@@ -980,6 +1013,8 @@ func AssociateTeamUsersHandler(w http.ResponseWriter, r *http.Request) {
 				} else {
 					fmt.Println("do not need to add", teamName, "to", user)
 				}
+			} else {
+				fmt.Println(user.Id, "!=", uid)
 			}
 		}
 	}
