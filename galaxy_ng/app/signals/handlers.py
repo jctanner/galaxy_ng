@@ -271,18 +271,22 @@ def lazy_content_type_correction(rd, obj):
 
     So this will apply the content_type of the first object given an object-assignment
     only under certain non-conflicting conditions"""
-    if obj and (rd.content_type is None):
-        if rd.name in settings.ANSIBLE_BASE_JWT_MANAGED_ROLES:
+    if (obj is None) or rd.content_type_id:
+        # If this is a system role assignment, or has already been corrected,
+        # then nothing needs to be corrected
+        return
+
+    if rd.name in settings.ANSIBLE_BASE_JWT_MANAGED_ROLES:
+        return
+    if not rd.user_assignments.exists():
+        ct = ContentType.objects.get_for_model(obj)
+        try:
+            # If permissions will not pass the validator, then we do not want to do this
+            validate_permissions_for_model(list(rd.permissions.all()), ct)
+        except ValidationError:
             return
-        if not rd.user_assignments.exists():
-            ct = ContentType.objects.get_for_model(obj)
-            try:
-                # If permissions will not pass the validator, then we do not want to do this
-                validate_permissions_for_model(list(rd.permissions.all()), ct)
-            except ValidationError:
-                return
-            rd.content_type = ct
-            rd.save(update_fields=['content_type'])
+        rd.content_type = ct
+        rd.save(update_fields=['content_type'])
 
 
 @receiver(post_save, sender=UserRole)
