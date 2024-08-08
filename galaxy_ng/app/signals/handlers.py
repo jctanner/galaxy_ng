@@ -16,19 +16,22 @@ from django.db.models.functions import Concat
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
+from django.apps import apps
 from pulp_ansible.app.models import (
     AnsibleDistribution,
     AnsibleRepository,
     Collection,
     AnsibleNamespaceMetadata,
 )
-from galaxy_ng.app.models import Namespace
+from galaxy_ng.app.models import Namespace, User, Team
+from galaxy_ng.app.migrations._dab_rbac import copy_roles_to_role_definitions
 from pulpcore.plugin.models import ContentRedirectContentGuard
 
 from ansible_base.rbac.validators import validate_permissions_for_model
-from ansible_base.rbac.models import RoleTeamAssignment
-from ansible_base.rbac.models import RoleUserAssignment
-from ansible_base.rbac.models import RoleDefinition
+from ansible_base.rbac.models import RoleDefinition, RoleUserAssignment, RoleTeamAssignment, DABPermission
+from ansible_base.rbac.triggers import dab_post_migrate
+from ansible_base.rbac import permission_registry
+
 from pulpcore.plugin.util import assign_role
 from pulpcore.plugin.util import remove_role
 from pulpcore.plugin.models.role import GroupRole, UserRole, Role
@@ -95,6 +98,20 @@ def associate_namespace_metadata(sender, instance, created, **kwargs):
 
     elif ns.metadata_sha256 != instance.metadata_sha256:
         _update_metadata()
+
+
+# ___ DAB RBAC ___
+
+TEAM_MEMBER_ROLE = 'Galaxy Team Member'
+
+
+def create_managed_roles(*args, **kwargs) -> None:
+    with dab_rbac_signals():  # do not create corresponding roles for these RoleDefinitions
+        permission_registry.create_managed_roles(apps)  # Create the DAB-only roles
+        copy_roles_to_role_definitions(apps, None)  # Create any roles created by pulp post_migrate signals
+
+
+dab_post_migrate.connect(create_managed_roles, dispatch_uid="create_managed_roles")
 
 
 # Signals for synchronizing the pulp roles with DAB RBAC roles
@@ -375,6 +392,9 @@ def copy_dab_user_role_assignment(sender, instance, created, **kwargs):
     if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
+        if instance.role_definition.name == TEAM_MEMBER_ROLE and isinstance(instance, RoleUserAssignment):
+            instance.content_object.group.user_set.add(instance.user)
+            return
         _apply_dab_assignment(instance)
 
 
@@ -384,6 +404,9 @@ def delete_dab_user_role_assignment(sender, instance, **kwargs):
     if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
+        if instance.role_definition.name == TEAM_MEMBER_ROLE and isinstance(instance, RoleUserAssignment):
+            instance.content_object.group.user_set.remove(instance.user)
+            return
         _unapply_dab_assignment(instance)
 
 
@@ -403,3 +426,37 @@ def delete_dab_team_role_assignment(sender, instance, **kwargs):
         return
     with dab_rbac_signals():
         _unapply_dab_assignment(instance)
+
+
+# Connect User.groups to the role in DAB
+
+def copy_dab_group_to_role(instance, action, model, pk_set, reverse, **kwargs):
+    if rbac_signal_in_progress():
+        return
+    if action.startswith("pre_"):
+        return
+    if reverse:
+        # NOTE: this should not work because of DAB RBAC signals either
+        # but this exception should alert us to any problems via downstream testing
+        # hopefully, if that is generalized
+        raise RuntimeError(
+            "Removal of permssions through reverse relationship"
+            + " not supported due to galaxy_ng signals"
+        )
+
+    member_rd = RoleDefinition.objects.get(name=TEAM_MEMBER_ROLE)
+    with dab_rbac_signals():
+        if action == 'post_add':
+            for group_id in pk_set:
+                team = Team.objects.get(group_id=group_id)
+                member_rd.give_permission(instance, team)
+        elif action == 'post_remove':
+            for group_id in pk_set:
+                team = Team.objects.get(group_id=group_id)
+                member_rd.remove_permission(instance, team)
+        elif action == 'post_clear':
+            for assignment in RoleUserAssignment.objects.filter(role_definition=member_rd, user=instance):
+                member_rd.remove_permission(instance, assignment.content_object)
+
+
+m2m_changed.connect(copy_dab_group_to_role, sender=User.groups.through)
