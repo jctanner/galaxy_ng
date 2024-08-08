@@ -24,21 +24,22 @@
 package main
 
 import (
-    "bytes"
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-    "io"
-    "io/ioutil"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -195,8 +196,12 @@ type UserResponse struct {
 }
 
 type TeamRequest struct {
-	Name          string `json:"name"`
-	Organization  int    `json:"organization"`
+	Name         string `json:"name"`
+	Organization int    `json:"organization"`
+}
+
+type AssociationRequest struct {
+	Instances []int `json:"instances"`
 }
 
 /************************************************************
@@ -236,46 +241,46 @@ var orgmap = map[string]int{
 
 var prepopulatedOrgs = map[string]Organization{
 	"default": {
-        Id:        1,
+		Id:        1,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee0",
 		Name:      "Default",
-        CodeName:   "default",
+		CodeName:  "default",
 	},
 	"org1": {
-        Id:        2,
+		Id:        2,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee1",
 		Name:      "Organization 1",
-        CodeName:  "org1",
+		CodeName:  "org1",
 	},
 	"org2": {
-        Id:        3,
+		Id:        3,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee2",
 		Name:      "Organization 2",
-        CodeName:  "org2",
+		CodeName:  "org2",
 	},
 	"pe": {
-        Id:        4,
+		Id:        4,
 		AnsibleId: "bc243368-a9d4-4f8f-9ffe-5d2d921fcee3",
 		Name:      "system:partner-engineers",
-        CodeName:  "pe",
+		CodeName:  "pe",
 	},
 }
 
 var prepopulatedTeams = map[string]Team{
 	"ateam": {
-        Id:        1,
+		Id:        1,
 		AnsibleId: "34a58292-1e0f-49f0-9383-fb7e63d771aa",
 		Name:      "ateam",
 		Org:       "org1",
 	},
 	"bteam": {
-        Id:        2,
+		Id:        2,
 		AnsibleId: "34a58292-1e0f-49f0-9383-fb7e63d771ab",
 		Name:      "bteam",
 		Org:       "default",
 	},
 	"peteam": {
-        Id:        3,
+		Id:        3,
 		AnsibleId: "34a58292-1e0f-49f0-9383-fb7e63d771ac",
 		Name:      "peteam",
 		Org:       "pe",
@@ -370,32 +375,29 @@ var (
 )
 
 var (
-	teams      = map[string]Team{}
-	teamsMutex = &sync.Mutex{}
-	teamIdCounter  = 4
+	teams         = map[string]Team{}
+	teamsMutex    = &sync.Mutex{}
+	teamIdCounter = 4
 )
 
 var (
-	orgs      = map[string]Organization{}
-	orgsMutex = &sync.Mutex{}
-	orgIdCounter  = 4
+	orgs         = map[string]Organization{}
+	orgsMutex    = &sync.Mutex{}
+	orgIdCounter = 4
 )
 
 /************************************************************
 	FUNCTIONS
 ************************************************************/
 
-/*
-func init() {
-	// Generate RSA keys
-	var err error
-	rsaPrivateKey, err = rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		panic(err)
+func containsString(list []string, str string) bool {
+	for _, v := range list {
+		if v == str {
+			return true
+		}
 	}
-	rsaPublicKey = &rsaPrivateKey.PublicKey
+	return false
 }
-*/
 
 // PrintHeaders prints all headers from the request
 func PrintHeaders(r *http.Request) {
@@ -664,7 +666,7 @@ func BasicAuth(next http.Handler) http.Handler {
 
 		// is there a csrftoken and is it valid?
 		csrftoken, err := GetCookieValue(r, "csrftoken")
-        log.Printf("CHECKING CSRFTOKEN %s", csrftoken)
+		log.Printf("CHECKING CSRFTOKEN %s", csrftoken)
 		if err == nil && !isCSRFTokenKnown(csrftoken) {
 
 			// allow if this was a token from the downstream ...
@@ -907,6 +909,77 @@ func TeamHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func AssociateTeamUsersHandler(w http.ResponseWriter, r *http.Request) {
+
+	teamsMutex.Lock()
+	defer teamsMutex.Unlock()
+
+	usersMutex.Lock()
+	defer usersMutex.Unlock()
+
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract the team_id from the URL path
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 9 || pathParts[7] != "associate" {
+		http.Error(w, "Invalid URL path", http.StatusBadRequest)
+		return
+	}
+	teamIDStr := pathParts[5]
+	teamID, _ := strconv.Atoi(teamIDStr)
+	fmt.Println("teamid", teamID)
+
+	// find the team codename ...
+	var teamName = ""
+	for _, team := range teams {
+		fmt.Println(team)
+		if team.Id == teamID {
+			fmt.Println(team)
+			teamName = team.Name
+			break
+		}
+	}
+	fmt.Println("teamname", teamName)
+
+	// fmt.Println("body", r.Body)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("Request Body:", string(body))
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// AssociationRequest
+	var newAssociationRequest AssociationRequest
+	if err := json.NewDecoder(r.Body).Decode(&newAssociationRequest); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println(newAssociationRequest)
+
+	for _, uid := range newAssociationRequest.Instances {
+		fmt.Println("uid", uid)
+		// find this user ..
+		for _, user := range users {
+			if user.Id == uid {
+				fmt.Println(user)
+				fmt.Println(user.Teams)
+				if containsString(user.Teams, teamName) == false {
+					fmt.Println("add", user.Username, "to", teamName)
+					user.Teams = append(user.Teams, teamName)
+					users[user.Username] = user
+				}
+			}
+		}
+	}
+
+}
+
 func UserHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -934,8 +1007,8 @@ func getOrgs(w http.ResponseWriter, r *http.Request) {
 
 	for _, orgdata := range orgList {
 		responseOrg := OrgResponse{
-			ID:       orgdata.Id,
-			Name:     orgdata.Name,
+			ID:   orgdata.Id,
+			Name: orgdata.Name,
 			SummaryFields: struct {
 				Resource struct {
 					AnsibleID string `json:"ansible_id"`
@@ -974,18 +1047,18 @@ func getTeams(w http.ResponseWriter, r *http.Request) {
 
 	for _, teamdata := range teamList {
 
-        var orgId = 0;
-        for _, org := range orgs {
-            if (org.CodeName == teamdata.Org) {
-                orgId = org.Id
-                break
-            }
-        }
+		var orgId = 0
+		for _, org := range orgs {
+			if org.CodeName == teamdata.Org {
+				orgId = org.Id
+				break
+			}
+		}
 
 		responseTeam := TeamResponse{
-			ID:       teamdata.Id,
-			Name:     teamdata.Name,
-            Organization: orgId,
+			ID:           teamdata.Id,
+			Name:         teamdata.Name,
+			Organization: orgId,
 			SummaryFields: struct {
 				Resource struct {
 					AnsibleID string `json:"ansible_id"`
@@ -1004,7 +1077,6 @@ func getTeams(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
-
 
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	usersMutex.Lock()
@@ -1045,14 +1117,14 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 
 func addTeam(w http.ResponseWriter, r *http.Request) {
 
-    // fmt.Println("body", r.Body)
-    body, err := ioutil.ReadAll(r.Body)
-    if err != nil {
-        http.Error(w, "Failed to read request body", http.StatusInternalServerError)
-        return
-    }
-    fmt.Println("Request Body:", string(body))
-    r.Body = io.NopCloser(bytes.NewBuffer(body))
+	// fmt.Println("body", r.Body)
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("Request Body:", string(body))
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
 
 	var newTeamRequest TeamRequest
 	if err := json.NewDecoder(r.Body).Decode(&newTeamRequest); err != nil {
@@ -1060,10 +1132,10 @@ func addTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    if (newTeamRequest.Name == "") {
+	if newTeamRequest.Name == "" {
 		http.Error(w, "Team name can not be blank", http.StatusConflict)
 		return
-    }
+	}
 
 	orgsMutex.Lock()
 	defer orgsMutex.Unlock()
@@ -1076,17 +1148,17 @@ func addTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    orgName := ""
-    for _, org := range orgs {
-        if (org.Id == newTeamRequest.Organization) {
-            orgName = org.CodeName
-            break
-        }
-    }
-    if (orgName == "") {
+	orgName := ""
+	for _, org := range orgs {
+		if org.Id == newTeamRequest.Organization {
+			orgName = org.CodeName
+			break
+		}
+	}
+	if orgName == "" {
 		http.Error(w, "Org not found", http.StatusConflict)
 		return
-    }
+	}
 
 	highestId := 0
 	for _, team := range teams {
@@ -1095,19 +1167,19 @@ func addTeam(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-    var newTeam Team
+	var newTeam Team
 
-    newTeam.Name = newTeamRequest.Name
+	newTeam.Name = newTeamRequest.Name
 	newTeam.Id = highestId + 1
 	newAnsibleID := uuid.NewString()
 	newTeam.AnsibleId = newAnsibleID
-    newTeam.Org = orgName
+	newTeam.Org = orgName
 	teams[newTeam.Name] = newTeam
 
 	responseTeam := TeamResponse{
 		ID:           newTeam.Id,
 		Name:         newTeam.Name,
-        Organization: newTeamRequest.Organization,
+		Organization: newTeamRequest.Organization,
 		SummaryFields: struct {
 			Resource struct {
 				AnsibleID string `json:"ansible_id"`
@@ -1172,6 +1244,11 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+    if (newUser.Username == "") {
+		http.Error(w, "username can not be blank.", http.StatusBadRequest)
+		return
+    }
+
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
 
@@ -1211,7 +1288,6 @@ func addUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(responseUser)
 }
 
-
 func init() {
 	// Generate RSA keys
 	log.Printf("# Making RSA keys\n")
@@ -1222,23 +1298,23 @@ func init() {
 	}
 	rsaPublicKey = &rsaPrivateKey.PublicKey
 
-    // build orgs ...
+	// build orgs ...
 	log.Printf("# Making Orgs\n")
-    orgsMutex.Lock()
-    defer orgsMutex.Unlock()
-    for _, org := range prepopulatedOrgs {
-        orgs[org.Name] = org
-    }
+	orgsMutex.Lock()
+	defer orgsMutex.Unlock()
+	for _, org := range prepopulatedOrgs {
+		orgs[org.Name] = org
+	}
 
-    // build teams ...
+	// build teams ...
 	log.Printf("# Making Teams\n")
-    teamsMutex.Lock()
-    defer teamsMutex.Unlock()
-    for _, team := range prepopulatedTeams {
-        teams[team.Name] = team
-    }
+	teamsMutex.Lock()
+	defer teamsMutex.Unlock()
+	for _, team := range prepopulatedTeams {
+		teams[team.Name] = team
+	}
 
-    // build users ...
+	// build users ...
 	log.Printf("# Making Users\n")
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
@@ -1311,7 +1387,14 @@ func main() {
 	http.HandleFunc("/api/gateway/v1/login/", LoginHandler)
 	http.HandleFunc("/api/gateway/v1/logout/", LogoutHandler)
 	http.HandleFunc("/api/gateway/v1/users/", UserHandler)
-	http.HandleFunc("/api/gateway/v1/teams/", TeamHandler)
+	// http.HandleFunc("/api/gateway/v1/teams/", TeamHandler)
+	http.HandleFunc("/api/gateway/v1/teams/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/gateway/v1/teams/") && strings.Contains(r.URL.Path, "/users/associate/") {
+			AssociateTeamUsersHandler(w, r)
+		} else {
+			TeamHandler(w, r)
+		}
+	})
 	http.HandleFunc("/api/gateway/v1/organizations/", OrganizationHandler)
 
 	// send everything else downstream
