@@ -377,11 +377,15 @@ def _get_pulp_role_kwargs(assignment):
 
 
 def _apply_dab_assignment(assignment):
+    if not Role.objects.filter(name=assignment.role_definition.name).exists():
+        return  # some platform roles will not have matching pulp roles
     args, kwargs = _get_pulp_role_kwargs(assignment)
     assign_role(*args, **kwargs)
 
 
 def _unapply_dab_assignment(assignment):
+    if not Role.objects.filter(name=assignment.role_definition.name).exists():
+        return  # some platform roles will not have matching pulp roles
     args, kwargs = _get_pulp_role_kwargs(assignment)
     remove_role(*args, **kwargs)
 
@@ -405,8 +409,11 @@ def delete_dab_user_role_assignment(sender, instance, **kwargs):
         return
     with dab_rbac_signals():
         if instance.role_definition.name == TEAM_MEMBER_ROLE and isinstance(instance, RoleUserAssignment):
-            instance.content_object.group.user_set.remove(instance.user)
-            return
+            # If the assignment does not have a content_object then it may be a global group role
+            # this type of role is not compatible with DAB RBAC and what we do is still TBD
+            if instance.content_object:
+                instance.content_object.group.user_set.remove(instance.user)
+                return
         _unapply_dab_assignment(instance)
 
 
