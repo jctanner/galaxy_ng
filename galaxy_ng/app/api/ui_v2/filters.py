@@ -34,7 +34,7 @@ class GroupViewFilter(django_filters.FilterSet):
 
     class Meta:
         model = Group
-        fields = []
+        fields = ["name"]
 
 
 class OrganizationFilter(django_filters.FilterSet):
@@ -44,7 +44,10 @@ class OrganizationFilter(django_filters.FilterSet):
 
     class Meta:
         model = Organization
-        fields = ["resource__ansible_id"]
+        fields = [
+            "resource__ansible_id",
+            "name",
+        ]
 
 
 class TeamFilter(django_filters.FilterSet):
