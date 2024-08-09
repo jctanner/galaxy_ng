@@ -627,15 +627,13 @@ func generateJWT(argUser User) (string, error) {
 		Objects:     objects,
 	}
 
-	fmt.Println("#######################################################")
-	log.Printf("\tMake claim for %s\n", user)
-	fmt.Println("Make claim for", user.Username)
-	log.Printf("\tClaim %s\n", claims)
-	fmt.Println("\tClaim", claims)
-	jsonData, _ := json.Marshal(claims)
-	log.Printf("\t%s\n", jsonData)
-	fmt.Println(jsonData)
-	fmt.Println("#######################################################")
+    jsonData, _ := json.MarshalIndent(claims, "", "  ")
+    jsonString := string(jsonData)
+
+    log.Printf("-------------------------------------\n")
+    log.Printf("Created JWT for %s ...\n", user.Username)
+    log.Println(jsonString)
+    log.Printf("-------------------------------------\n")
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	return token.SignedString(rsaPrivateKey)
