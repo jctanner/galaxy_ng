@@ -4,7 +4,6 @@ from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
-from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.decorators import action
 
 from ansible_base.rest_pagination.default_paginator import DefaultPaginator
