@@ -16,6 +16,7 @@ from .serializers import UserSerializer
 from .serializers import GroupSerializer
 from .serializers import OrganizationSerializer
 from .serializers import TeamSerializer
+from .permissions import IsSuperUserOrReadOnly
 
 from galaxy_ng.app.models.auth import User
 from galaxy_ng.app.models.auth import Group
@@ -36,6 +37,7 @@ class UserViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = UserViewFilter
     pagination_class = DefaultPaginator
+    permission_classes = [IsSuperUserOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -81,6 +83,7 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = GroupViewFilter
     pagination_class = DefaultPaginator
+    permission_classes = [IsSuperUserOrReadOnly]
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
@@ -90,6 +93,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = OrganizationFilter
     pagination_class = DefaultPaginator
+    permission_classes = [IsSuperUserOrReadOnly]
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -112,6 +116,7 @@ class TeamViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = TeamFilter
     pagination_class = DefaultPaginator
+    permission_classes = [IsSuperUserOrReadOnly]
 
     def create(self, request, *args, **kwargs):
 
