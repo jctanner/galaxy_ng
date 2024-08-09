@@ -62,4 +62,9 @@ class TeamFilter(django_filters.FilterSet):
 
     class Meta:
         model = Team
-        fields = ["resource__ansible_id", "name__contains", "name__icontains"]
+        fields = [
+            "resource__ansible_id",
+            "name",
+            "name__contains",
+            "name__icontains"
+        ]
