@@ -1,6 +1,5 @@
 from rest_framework import viewsets
 from django_filters.rest_framework import DjangoFilterBackend
-from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
@@ -22,13 +21,6 @@ from galaxy_ng.app.models.auth import User
 from galaxy_ng.app.models.auth import Group
 from galaxy_ng.app.models.organization import Organization
 from galaxy_ng.app.models.organization import Team
-
-
-def version_view(request):
-    data = {
-        "version": "2024-08-05T18:00:00"
-    }
-    return JsonResponse(data)
 
 
 class UserViewSet(viewsets.ModelViewSet):
