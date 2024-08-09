@@ -442,16 +442,28 @@ def copy_dab_group_to_role(instance, action, model, pk_set, reverse, **kwargs):
         return
     if action.startswith("pre_"):
         return
-    if reverse:
-        # NOTE: this should not work because of DAB RBAC signals either
-        # but this exception should alert us to any problems via downstream testing
-        # hopefully, if that is generalized
-        raise RuntimeError(
-            "Removal of permssions through reverse relationship"
-            + " not supported due to galaxy_ng signals"
-        )
 
     member_rd = RoleDefinition.objects.get(name=TEAM_MEMBER_ROLE)
+    if reverse:
+        # NOTE: for we might prefer to use pk_set
+        # but it appears to be incorrectly empty on the reverse signal,
+        # the models itself on post_ actions seems good so we use that
+        team = Team.objects.get(group_id=instance.pk)
+        current_dab_members = set(
+            assignment.user for assignment in RoleUserAssignment.objects.filter(
+                role_definition=member_rd, object_id=team.pk
+            )
+        )
+        desired_members = set(instance.user_set.all())
+        users_to_add = desired_members - current_dab_members
+        users_to_remove = current_dab_members - desired_members
+        with dab_rbac_signals():
+            for user in users_to_add:
+                member_rd.give_permission(user, team)
+            for user in users_to_remove:
+                member_rd.remove_permission(user, team)
+        return
+
     with dab_rbac_signals():
         if action == 'post_add':
             for group_id in pk_set:
