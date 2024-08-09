@@ -76,20 +76,12 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
-class GroupViewSet(viewsets.ModelViewSet):
+class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all().order_by('id')
     serializer_class = GroupSerializer
     filter_backends = (DjangoFilterBackend,)
     filterset_class = GroupViewFilter
     pagination_class = DefaultPaginator
-
-    def create(self, request, *args, **kwargs):
-        raise MethodNotAllowed('POST')
-
-    def get_permissions(self):
-        if self.action == 'create':
-            raise MethodNotAllowed('POST')
-        return super().get_permissions()
 
 
 class OrganizationViewSet(viewsets.ModelViewSet):
