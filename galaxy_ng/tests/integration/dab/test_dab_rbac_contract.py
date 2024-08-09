@@ -534,15 +534,19 @@ def user_and_group(request, galaxy_client):
     return (user, group)
 
 
-def test_group_sync_from_pulp_to_dab(galaxy_client, assert_user_in_group, user_and_group):
+def test_group_sync_from_pulp_to_dab(galaxy_client, assert_user_in_group, user_and_group, pulp_api):
     gc = galaxy_client("admin")
     user, group = user_and_group
 
     assert_user_in_group(user["id"], group["id"], expected=False)
+    old_groups = user["groups"].copy()
     user["groups"].append(group)
 
     gc.patch(f"_ui/v2/users/{user['id']}/", body={"groups": user["groups"]})
     assert_user_in_group(user["id"], group["id"], expected=True)
+
+    gc.patch(f"_ui/v2/users/{user['id']}/", body={"groups": old_groups})
+    assert_user_in_group(user["id"], group["id"], expected=False)
 
 
 @pytest.mark.skip(reason="Cannot be fixed until https://github.com/ansible/django-ansible-base/pull/562 stops it giving a 400")
