@@ -132,7 +132,7 @@ type Organization struct {
 	Id        int    `json:"id"`
 	AnsibleId string `json:"ansible_id"`
 	Name      string `json:"name"`
-	CodeName  string `json:"name"`
+	CodeName  string `json:"code_name"`
 }
 
 type Team struct {
@@ -554,32 +554,75 @@ func generateJWT(argUser User) (string, error) {
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
 
-	user := users[argUser.Username]
+	/*
+	   oData1, _ := json.MarshalIndent(orgs, "", "  ")
+	   oString1 := string(oData1)
+	   fmt.Println(oString1)
+	*/
 
-	fmt.Println("#######################################################")
+	user := users[argUser.Username]
 
 	// make a list of org structs for this user ...
 	userOrgs := []Organization{}
 	userTeams := []TeamObject{}
 
+	// what orgs is this user a direct member of? ...
 	localOrgMap := map[string]int{}
 	counter := -1
 	for _, orgName := range user.Organizations {
 		counter += 1
 		localOrgMap[orgName] = counter
-		userOrgs = append(userOrgs, orgs[orgName])
+		fmt.Println("# ADD ORG", orgName, "TO USERORGS ..")
+
+		thisOrg, ok := orgs[orgName]
+		if !ok {
+			fmt.Println(orgName, "was not in the orgs map!!!")
+			panic("FUDGE!!!")
+		}
+
+		userOrgs = append(userOrgs, thisOrg)
+
+		/*
+		   oData, _ := json.MarshalIndent(thisOrg, "", "  ")
+		   oString := string(oData)
+		   fmt.Println(oString)
+		*/
+
 	}
 
-	fmt.Println("# USER TEAMS ...", user.Teams)
+	// what orgs is this user an indirect member of? ...
 	for _, teamCodeName := range user.Teams {
 		team := teams[teamCodeName]
 		orgName := team.Org
-		fmt.Println("-----------------------------------------------------")
-		fmt.Println("# TEAM+ORG_NAME", team, orgName)
-		fmt.Println("-----------------------------------------------------")
-	}
+		fmt.Println("# TEAM:", team, "ORG:", orgName)
 
-	//panic("FUCK")
+		/*
+		   jData, _ := json.MarshalIndent(localOrgMap, "", "  ")
+		   jString := string(jData)
+		   fmt.Println(jString)
+		*/
+
+		// check if related org is in the list+map ...
+		found := false
+		highestIndex := -1
+		for orgName2, orgIndex2 := range localOrgMap {
+			fmt.Println("\t#ORG2", fmt.Sprintf("ix: %d", orgIndex2), "name:", orgName2)
+			if orgName2 == orgName {
+				found = true
+				break
+			}
+			if highestIndex < orgIndex2 {
+				highestIndex = orgIndex2
+			}
+		}
+
+		// add it to the list+map if not already there ...
+		if found == false {
+			newIndex := highestIndex + 1
+			localOrgMap[orgName] = newIndex
+			userOrgs = append(userOrgs, orgs[orgName])
+		}
+	}
 
 	for _, team := range user.Teams {
 		orgName := teams[team].Org
@@ -591,7 +634,18 @@ func generateJWT(argUser User) (string, error) {
 		})
 	}
 
-	fmt.Println("userteams", userTeams)
+	/*
+	   oData1, _ := json.MarshalIndent(orgs, "", "  ")
+	   oString1 := string(oData1)
+	   fmt.Println(oString1)
+	*/
+
+	oData, _ := json.MarshalIndent(userOrgs, "", "  ")
+	oString := string(oData)
+	fmt.Println(oString)
+
+	fmt.Println("# userorgs", userOrgs)
+	fmt.Println("# userteams", userTeams)
 
 	objects := map[string]interface{}{
 		"organization": userOrgs,
@@ -627,13 +681,13 @@ func generateJWT(argUser User) (string, error) {
 		Objects:     objects,
 	}
 
-    jsonData, _ := json.MarshalIndent(claims, "", "  ")
-    jsonString := string(jsonData)
+	jsonData, _ := json.MarshalIndent(claims, "", "  ")
+	jsonString := string(jsonData)
 
-    log.Printf("-------------------------------------\n")
-    log.Printf("Created JWT for %s ...\n", user.Username)
-    log.Println(jsonString)
-    log.Printf("-------------------------------------\n")
+	log.Printf("-------------------------------------\n")
+	log.Printf("Created JWT for %s ...\n", user.Username)
+	log.Println(jsonString)
+	log.Printf("-------------------------------------\n")
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	return token.SignedString(rsaPrivateKey)
@@ -1405,7 +1459,7 @@ func init() {
 	orgsMutex.Lock()
 	defer orgsMutex.Unlock()
 	for _, org := range prepopulatedOrgs {
-		orgs[org.Name] = org
+		orgs[org.CodeName] = org
 	}
 
 	// build teams ...
