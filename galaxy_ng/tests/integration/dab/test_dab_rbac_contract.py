@@ -500,7 +500,9 @@ def assert_user_in_group(galaxy_client):
         else:
             assert group["name"] not in [g["name"] for g in user["groups"]]
 
-        assignment_r = gc.get(f"_ui/v2/role_user_assignments/?user={user['id']}&content_type__model=team")
+        assignment_r = gc.get(
+            f"_ui/v2/role_user_assignments/?user={user['id']}&content_type__model=team"
+        )
         group_ids = [assignment["object_id"] for assignment in assignment_r["results"]]
         if expected:
             assert str(group_id) in group_ids, assignment_r
@@ -549,7 +551,11 @@ def test_group_sync_from_pulp_to_dab(galaxy_client, assert_user_in_group, user_a
     assert_user_in_group(user["id"], group["id"], expected=False)
 
 
-@pytest.mark.skip(reason="Cannot be fixed until https://github.com/ansible/django-ansible-base/pull/562 stops it giving a 400")
+@pytest.mark.skip(reason=(
+    "Cannot be fixed until "
+    + "https://github.com/ansible/django-ansible-base/pull/562"
+    + " stops it giving a 400"
+))
 def test_team_member_sync_from_dab_to_pulp(galaxy_client, assert_user_in_group, user_and_group):
     gc = galaxy_client("admin")
     user, group = user_and_group

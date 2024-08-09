@@ -28,7 +28,11 @@ from galaxy_ng.app.migrations._dab_rbac import copy_roles_to_role_definitions
 from pulpcore.plugin.models import ContentRedirectContentGuard
 
 from ansible_base.rbac.validators import validate_permissions_for_model
-from ansible_base.rbac.models import RoleDefinition, RoleUserAssignment, RoleTeamAssignment, DABPermission
+from ansible_base.rbac.models import (
+    RoleDefinition,
+    RoleUserAssignment,
+    RoleTeamAssignment,
+)
 from ansible_base.rbac.triggers import dab_post_migrate
 from ansible_base.rbac import permission_registry
 
@@ -106,9 +110,12 @@ TEAM_MEMBER_ROLE = 'Galaxy Team Member'
 
 
 def create_managed_roles(*args, **kwargs) -> None:
-    with dab_rbac_signals():  # do not create corresponding roles for these RoleDefinitions
-        permission_registry.create_managed_roles(apps)  # Create the DAB-only roles
-        copy_roles_to_role_definitions(apps, None)  # Create any roles created by pulp post_migrate signals
+    # do not create corresponding roles for these RoleDefinitions
+    with dab_rbac_signals():
+        # Create the DAB-only roles
+        permission_registry.create_managed_roles(apps)
+        # Create any roles created by pulp post_migrate signals
+        copy_roles_to_role_definitions(apps, None)
 
 
 dab_post_migrate.connect(create_managed_roles, dispatch_uid="create_managed_roles")
@@ -396,7 +403,8 @@ def copy_dab_user_role_assignment(sender, instance, created, **kwargs):
     if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
-        if instance.role_definition.name == TEAM_MEMBER_ROLE and isinstance(instance, RoleUserAssignment):
+        if instance.role_definition.name == TEAM_MEMBER_ROLE and \
+                isinstance(instance, RoleUserAssignment):
             instance.content_object.group.user_set.add(instance.user)
             return
         _apply_dab_assignment(instance)
@@ -408,7 +416,8 @@ def delete_dab_user_role_assignment(sender, instance, **kwargs):
     if rbac_signal_in_progress():
         return
     with dab_rbac_signals():
-        if instance.role_definition.name == TEAM_MEMBER_ROLE and isinstance(instance, RoleUserAssignment):
+        if instance.role_definition.name == TEAM_MEMBER_ROLE and \
+                isinstance(instance, RoleUserAssignment):
             # If the assignment does not have a content_object then it may be a global group role
             # this type of role is not compatible with DAB RBAC and what we do is still TBD
             if instance.content_object:
@@ -474,7 +483,8 @@ def copy_dab_group_to_role(instance, action, model, pk_set, reverse, **kwargs):
                 team = Team.objects.get(group_id=group_id)
                 member_rd.remove_permission(instance, team)
         elif action == 'post_clear':
-            for assignment in RoleUserAssignment.objects.filter(role_definition=member_rd, user=instance):
+            qs = RoleUserAssignment.objects.filter(role_definition=member_rd, user=instance)
+            for assignment in qs:
                 member_rd.remove_permission(instance, assignment.content_object)
 
 
