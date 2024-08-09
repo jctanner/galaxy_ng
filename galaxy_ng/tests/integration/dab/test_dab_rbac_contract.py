@@ -487,3 +487,92 @@ def test_object_role_permission_validation(galaxy_client, custom_role_creator, n
     with pytest.raises(GalaxyClientError) as exc:
         gc.put(f"_ui/v1/my-namespaces/{namespace['name']}/", body=payload)
     assert 'Role type global does not match object namespace' in str(exc)
+
+
+@pytest.fixture
+def assert_user_in_group(galaxy_client):
+    def _rf(user_id, group_id, expected=True):
+        gc = galaxy_client("admin")
+        user = gc.get(f"_ui/v2/users/{user_id}/")
+        group = gc.get(f"_ui/v2/groups/{group_id}/")
+        if expected:
+            assert group["name"] in [g["name"] for g in user["groups"]]
+        else:
+            assert group["name"] not in [g["name"] for g in user["groups"]]
+
+        assignment_r = gc.get(f"_ui/v2/role_user_assignments/?user={user['id']}&content_type__model=team")
+        group_ids = [assignment["object_id"] for assignment in assignment_r["results"]]
+        if expected:
+            assert str(group_id) in group_ids, assignment_r
+        else:
+            assert str(group_id) not in group_ids, assignment_r
+    return _rf
+
+
+@pytest.fixture
+def user_and_group(request, galaxy_client):
+    "Return a tuple of a user and group where the user is not in the group"
+    gc = galaxy_client("admin")
+    user_r = gc.get("_ui/v2/users/?username=jdoe")
+    assert user_r["count"] > 0
+    user = user_r["results"][0]
+
+    group_r = gc.get("_ui/v2/groups/?name=ship_crew")
+    assert group_r["count"] > 0
+    group = group_r["results"][0]
+
+    def assure_user_not_in_group():
+        # Remove the user from the group if they are in the group
+        if "ship_crew" in [g["name"] for g in user["groups"]]:
+            user["groups"] = [g for g in user["groups"] if g["name"] != "ship_crew"]
+            gc.patch(f"_ui/v2/users/{user['id']}/", body={"groups": user["groups"]})
+
+    assure_user_not_in_group()
+
+    request.addfinalizer(assure_user_not_in_group)
+
+    return (user, group)
+
+
+def test_group_sync_from_pulp_to_dab(galaxy_client, assert_user_in_group, user_and_group, pulp_api):
+    gc = galaxy_client("admin")
+    user, group = user_and_group
+
+    assert_user_in_group(user["id"], group["id"], expected=False)
+    old_groups = user["groups"].copy()
+    user["groups"].append(group)
+
+    gc.patch(f"_ui/v2/users/{user['id']}/", body={"groups": user["groups"]})
+    assert_user_in_group(user["id"], group["id"], expected=True)
+
+    gc.patch(f"_ui/v2/users/{user['id']}/", body={"groups": old_groups})
+    assert_user_in_group(user["id"], group["id"], expected=False)
+
+
+@pytest.mark.skip(reason="Cannot be fixed until https://github.com/ansible/django-ansible-base/pull/562 stops it giving a 400")
+def test_team_member_sync_from_dab_to_pulp(galaxy_client, assert_user_in_group, user_and_group):
+    gc = galaxy_client("admin")
+    user, group = user_and_group
+
+    assert_user_in_group(user["id"], group["id"], expected=False)
+
+    # Get the DAB team member role
+    rd_list = gc.get("_ui/v2/role_definitions/?name=Galaxy Team Member")
+    assert rd_list["count"] == 1
+    rd = rd_list["results"][0]
+
+    # Because group and team are different, we look up the team by name, for DAB
+    team_list = gc.get(f"_ui/v2/teams/?name={group['name']}")
+    assert team_list["count"] == 1, team_list
+    team = team_list["results"][0]
+
+    gc.post(
+        "_ui/v2/role_user_assignments/",
+        body={
+            "role_definition": rd["id"],
+            "user": user["id"],
+            "object_id": str(team["id"]),
+        },
+    )
+
+    assert_user_in_group(user["id"], group["id"], expected=True)
