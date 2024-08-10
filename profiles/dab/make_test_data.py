@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
 import requests
+import warnings
+
+
+warnings.filterwarnings("ignore")
+
 
 HUB_API_ROOT = "https://localhost/api/galaxy/"
 GW_ROOT_URL = "https://localhost"
