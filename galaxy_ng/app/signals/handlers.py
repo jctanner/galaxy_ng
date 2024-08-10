@@ -306,7 +306,8 @@ def lazy_content_type_correction(rd, obj):
 
     if rd.name in settings.ANSIBLE_BASE_JWT_MANAGED_ROLES:
         return
-    if ((obj is None) and (rd.content_type_id is None)) or (rd.content_type_id and obj._meta.model_name == rd.content_type.model):
+    if ((obj is None) and (rd.content_type_id is None)) or \
+            (rd.content_type_id and obj._meta.model_name == rd.content_type.model):
         return  # type already matches with intent, so nothing to do here, do not even log
     if not rd.user_assignments.exists():
         ct = ContentType.objects.get_for_model(obj)
@@ -314,12 +315,18 @@ def lazy_content_type_correction(rd, obj):
             # If permissions will not pass the validator, then we do not want to do this
             validate_permissions_for_model(list(rd.permissions.all()), ct)
         except ValidationError as exc:
-            logger.warning(f'Assignment to {rd.name} for {type(obj)} violates a DAB role validation rule: {str(exc)}')
+            logger.warning(
+                f'Assignment to {rd.name} for {type(obj)}'
+                + f' violates a DAB role validation rule: {str(exc)}'
+            )
             return
         rd.content_type = ct
         rd.save(update_fields=['content_type'])
     else:
-        logger.warning(f'Assignment to {rd.name} for {type(obj)} mis-matches with existing assignments')
+        logger.warning(
+            f'Assignment to {rd.name} for {type(obj)}'
+            + ' mis-matches with existing assignments'
+        )
 
 
 @receiver(post_save, sender=UserRole)
