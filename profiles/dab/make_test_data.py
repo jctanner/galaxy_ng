@@ -7,7 +7,7 @@ GW_ROOT_URL = "https://localhost"
 ADMIN_AUTH = ('admin', 'redhat1234')
 
 NAMESPACES = ("autohubtest2", "autohubtest3", "signing")
-USERS = ("notifications_admin", "jdoe", "org-admin")
+USERS = ("notifications_admin", "iqe_normal_user", "jdoe", "org-admin")
 
 # MAP OUT THE ROLES ..
 rr = requests.get(
