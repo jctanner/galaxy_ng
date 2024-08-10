@@ -85,4 +85,13 @@ for NAMESPACE in NAMESPACES:
             auth=ADMIN_AUTH,
             json=payload
         )
-        # import epdb; epdb.st()
+
+        # galaxy.execution_environment_admin
+        payload['role_definition'] = ROLEDEFS["galaxy.execution_environment_admin"]["id"]
+        prr = requests.post(
+            GW_ROOT_URL + '/api/galaxy/_ui/v2/role_user_assignments/',
+            verify=False,
+            auth=ADMIN_AUTH,
+            json=payload
+        )
+        #import epdb; epdb.st()
