@@ -5,18 +5,14 @@ PIP=${VENVPATH}/bin/pip
 if  [[ ! -d $VENVPATH ]]; then
     virtualenv --python=$(which python3.11) $VENVPATH
     $PIP install -r integration_requirements.txt
+    if [[ -d ../galaxykit ]]; then
+        cd ..
+        $PIP install -e galaxykit
+        cd galaxy_ng
+    fi
+
 fi
 source $VENVPATH/bin/activate
-#if [[ -d ../galaxykit ]]; then
-#    cd 
-#    $PIP install -e ../galaxykit
-#fi
-
-#cd /src/galaxy_ng/
-#django-admin shell < ./dev/common/setup_test_data.py
-#cd galaxy_ng
-#django-admin makemessages --all
-# cd /src/galaxy_ng/
 
 set -x
 
@@ -26,16 +22,22 @@ export HUB_USE_MOVE_ENDPOINT=1
 export HUB_LOCAL=1
 export ENABLE_DAB_TESTS=1
 export HUB_TEST_MARKS="(deployment_standalone or x_repo_search or all) and not package and not iqe_ldap and not skip_in_gw"
-export JWT_PROXY=false
 export AAP_GATEWAY=true
 export GW_ROOT_URL=https://localhost
 export CONTAINER_REGISTRY=localhost
+
+export GALAXYKIT_SLEEP_SECONDS_POLLING=.5
+export GALAXYKIT_SLEEP_SECONDS_ONETIME=.5
+export GALAXYKIT_POLLING_MAX_ATTEMPTS=50
+export GALAXY_SLEEP_SECONDS_POLLING=.5
+export GALAXY_SLEEP_SECONDS_ONETIME=.5
+export GALAXY_POLLING_MAX_ATTEMPTS=50
 
 
 $VENVPATH/bin/python profiles/dab/make_test_data.py
 
 
-$VENVPATH/bin/pytest -v -r sx --color=yes -m "$HUB_TEST_MARKS" "$@" galaxy_ng/tests/integration
+$VENVPATH/bin/pytest --log-level=DEBUG -v -r sx --color=yes -m "$HUB_TEST_MARKS" "$@" galaxy_ng/tests/integration
 RC=$?
 
 exit $RC
