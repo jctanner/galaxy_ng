@@ -306,6 +306,8 @@ def lazy_content_type_correction(rd, obj):
 
     if rd.name in settings.ANSIBLE_BASE_JWT_MANAGED_ROLES:
         return
+    if ((obj is None) and (rd.content_type_id is None)) or (rd.content_type_id and obj._meta.model_name == rd.content_type.model):
+        return  # type already matches with intent, so nothing to do here, do not even log
     if not rd.user_assignments.exists():
         ct = ContentType.objects.get_for_model(obj)
         try:

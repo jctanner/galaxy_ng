@@ -462,14 +462,14 @@ def test_give_user_custom_role_object(
     assert_object_role_assignments(gc, user, namespace, 0)
 
 
-def test_object_role_permission_validation(galaxy_client, custom_role_creator, namespace):
+def test_object_role_permission_validation(galaxy_client, custom_role_factory, namespace):
     gc = galaxy_client("admin")
 
     data = NS_FIXTURE_DATA.copy()
     data["name"] = "galaxy.namespace_custom_pulp_object_role"
     # Add a permission not valid for namespaces
     data["permissions"] += ["core.view_task"]
-    custom_obj_role_pulp = custom_role_creator(data, url_base=PULP_ROLE_URL)
+    custom_obj_role_pulp = custom_role_factory(data, url_base=PULP_ROLE_URL)
 
     user_r = gc.get("_ui/v2/users/")
     assert user_r["count"] > 0
@@ -536,7 +536,7 @@ def user_and_group(request, galaxy_client):
     return (user, group)
 
 
-def test_group_sync_from_pulp_to_dab(galaxy_client, assert_user_in_group, user_and_group, pulp_api):
+def test_group_sync_from_pulp_to_dab(galaxy_client, assert_user_in_group, user_and_group):
     gc = galaxy_client("admin")
     user, group = user_and_group
 
