@@ -12,7 +12,7 @@ GW_ROOT_URL = "https://localhost"
 ADMIN_AUTH = ('admin', 'redhat1234')
 
 NAMESPACES = ("autohubtest2", "autohubtest3", "signing")
-USERS = ("notifications_admin", "iqe_normal_user", "jdoe", "org-admin")
+USERS = ("notifications_admin", "iqe_normal_user", "jdoe", "org-admin", "iqe_admin")
 
 # FIXME - this seems to be dependant on not having a gateway
 GROUP = "ns_group_for_tests"
@@ -32,7 +32,7 @@ umap = {}
 for USERNAME in USERS:
 
     payload = {'username': USERNAME, 'password': 'redhat'}
-    if USERNAME == "notifications_admin":
+    if USERNAME == "notifications_admin" or USERNAME == "iqe_admin":
         payload['is_superuser'] = True
 
     rr = requests.get(
