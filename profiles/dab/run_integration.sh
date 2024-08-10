@@ -29,6 +29,7 @@ export HUB_TEST_MARKS="(deployment_standalone or x_repo_search or all) and not p
 export JWT_PROXY=false
 export AAP_GATEWAY=true
 export GW_ROOT_URL=https://localhost
+export CONTAINER_REGISTRY=localhost
 
 
 $VENVPATH/bin/python profiles/dab/make_test_data.py
