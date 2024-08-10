@@ -9,6 +9,10 @@ ADMIN_AUTH = ('admin', 'redhat1234')
 NAMESPACES = ("autohubtest2", "autohubtest3", "signing")
 USERS = ("notifications_admin", "iqe_normal_user", "jdoe", "org-admin")
 
+# FIXME - this seems to be dependant on not having a gateway
+GROUP = "ns_group_for_tests"
+
+
 # MAP OUT THE ROLES ..
 rr = requests.get(
     GW_ROOT_URL + '/api/galaxy/_ui/v2/role_definitions/',
@@ -94,4 +98,3 @@ for NAMESPACE in NAMESPACES:
             auth=ADMIN_AUTH,
             json=payload
         )
-        #import epdb; epdb.st()
