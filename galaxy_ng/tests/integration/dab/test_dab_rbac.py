@@ -114,13 +114,14 @@ def test_dab_rbac_namespace_owner_by_team(
 ):
     """Tests the galaxy.system_auditor role can be added to a user and has the right perms."""
 
-    if settings.get('ALLOW_LOCAL_RESOURCE_MANAGEMENT') is False:
-        pytest.skip("galaxykit uses drf tokens, which bypass JWT auth and claims processing")
+    #if settings.get('ALLOW_LOCAL_RESOURCE_MANAGEMENT') is False:
+    #    pytest.skip("galaxykit uses drf tokens, which bypass JWT auth and claims processing")
 
     org_name = random_username.replace('user_', 'org_')
     team_name = random_username.replace('user_', 'team_')
 
     gc = galaxy_client("admin", ignore_cache=True)
+    gw_root_url = gc.gw_root_url
 
     # make the user ...
     if settings.get('ALLOW_LOCAL_RESOURCE_MANAGEMENT') is False:
@@ -133,7 +134,7 @@ def test_dab_rbac_namespace_owner_by_team(
         )
 
         auth = {'username': random_username, 'password': 'redhat1234'}
-        ugc = GalaxyClient(gc.galaxy_root, auth=auth)
+        ugc = GalaxyClient(gc.galaxy_root, auth=auth, gw_auth=True, gw_root_url=gw_root_url)
         me_ds = ugc.get('_ui/v1/me/')
         user_id = me_ds['id']
     else:
@@ -198,6 +199,12 @@ def test_dab_rbac_namespace_owner_by_team(
         #user_rr = ugc.get(f'_ui/v2/users/?username={random_username}')
         import epdb; epdb.st()
         '''
+
+        #auth = {'username': random_username, 'password': 'redhat1234'}
+        #ugc = GalaxyClient(gc.galaxy_root, auth=auth, gw_auth=True, gw_root_url=gw_root_url)
+        #me_ds = ugc.get('_ui/v1/me/')
+        user_rr = ugc.get(f'_ui/v2/users/?username={random_username}')
+        import epdb; epdb.st()
 
     else:
         team_data = gc.post(
